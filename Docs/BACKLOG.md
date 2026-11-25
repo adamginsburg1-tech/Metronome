@@ -2,6 +2,14 @@
 
 Status: ☐ todo · ◐ in progress · ☑ done. Milestones from plan §09.
 
+## Platform spike (decides web-first vs native)
+- ☑ Web test: Quick Click with Web Audio lookahead scheduler, diagnostics,
+  checklist and copyable report; preview artifact + home-screen build (`web/`)
+- ☐ **Owner:** run the three checks on the iPad and send the report
+- ☐ Enable GitHub Pages (Settings → Pages → Source: GitHub Actions) for the
+  home-screen/offline check
+- ☐ Decide web-first vs native (D-008) and update this backlog
+
 ## M0 — Foundations (3–5 days)
 Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 

@@ -1,13 +1,23 @@
-name: Domain tests
+name: Tests
 
 on:
   push:
   pull_request:
 
 jobs:
-  linux:
+  swift-domain:
     runs-on: ubuntu-latest
     container: swift:6.0-noble
     steps:
       - uses: actions/checkout@v4
       - run: swift test
+
+  web-timing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test 'web/test/*.test.js'
+      - run: node web/build.mjs

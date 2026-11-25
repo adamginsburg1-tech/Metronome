@@ -1,0 +1,74 @@
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><strong>POCKET</strong><span>Web test · Quick Click</span></div>
+    <div class="pill" id="status-pill" data-state="idle" role="status">Ready</div>
+  </header>
+
+  <div class="banner" id="banner" role="alert" hidden>
+    <p id="banner-text"></p>
+    <button type="button" id="banner-dismiss">Dismiss</button>
+  </div>
+
+  <main class="layout">
+    <section class="panel play" aria-label="Tempo">
+      <div class="tempo">
+        <span class="beat-glyph" id="beat-glyph" aria-hidden="true">♩</span>
+        <button type="button" class="bpm" id="bpm-display" aria-label="Tempo 112 BPM. Tap to type a tempo.">112</button>
+        <input class="bpm-input" id="bpm-input" type="text" inputmode="decimal" autocomplete="off" aria-label="Tempo in BPM, 20 to 300" hidden>
+        <span class="bpm-unit">BPM</span>
+        <p class="tempo-note" id="tempo-note" aria-live="polite"></p>
+      </div>
+      <div class="nudges">
+        <button type="button" class="nudge" data-nudge="-5" aria-label="Slower by 5">−5</button>
+        <button type="button" class="nudge" data-nudge="-1" aria-label="Slower by 1">−1</button>
+        <button type="button" class="nudge tap" id="tap" aria-label="Tap tempo">TAP</button>
+        <button type="button" class="nudge" data-nudge="1" aria-label="Faster by 1">+1</button>
+        <button type="button" class="nudge" data-nudge="5" aria-label="Faster by 5">+5</button>
+      </div>
+      <div class="beats" id="beats" aria-label="Beats in the bar"></div>
+      <p class="hint">Tap a beat to change its accent: strong, group, normal, silent.</p>
+    </section>
+
+    <section class="panel setup" aria-label="Click setup">
+      <fieldset class="field"><legend>Meter</legend><div class="chips" id="meter-chips"></div></fieldset>
+      <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="sub-chips"></div></fieldset>
+      <fieldset class="field"><legend>Count-in</legend><div class="chips" id="countin-chips"></div></fieldset>
+      <fieldset class="field"><legend>Sound</legend><div class="chips" id="sound-chips"></div></fieldset>
+      <div class="field">
+        <span class="label" id="volume-label">Master volume</span>
+        <div class="volume">
+          <input type="range" id="volume" min="0" max="100" step="1" value="60" aria-labelledby="volume-label">
+          <output id="volume-out" for="volume">60%</output>
+        </div>
+      </div>
+      <div class="field">
+        <label class="toggle"><input type="checkbox" id="opt-wake" checked> Keep screen on while playing</label>
+        <label class="toggle"><input type="checkbox" id="opt-route" checked> Stop if the audio output changes</label>
+      </div>
+    </section>
+
+    <section class="panel results" aria-label="Test results">
+      <div class="results-head">
+        <h2>Test results</h2>
+        <div class="actions">
+          <button type="button" class="btn primary" id="copy-report">Copy report</button>
+          <button type="button" class="btn" id="reset-stats">Reset counters</button>
+        </div>
+      </div>
+      <dl class="metrics" id="metrics"></dl>
+      <div class="checks" id="checks"></div>
+      <label class="subhead" for="notes" style="display:block">Notes</label>
+      <textarea class="notes" id="notes" placeholder="Anything you heard or saw: a flam, a stutter, a stop you didn't expect, how long it ran…"></textarea>
+      <textarea class="report-fallback" id="report-fallback" readonly hidden aria-label="Report text"></textarea>
+      <h3 class="subhead">Event log</h3>
+      <div class="log-wrap"><ol class="log" id="log" aria-live="off"></ol></div>
+    </section>
+  </main>
+
+  <footer class="transport">
+    <div class="transport-inner">
+      <button type="button" class="start" id="start" data-running="false">Start</button>
+      <div class="position" aria-live="off"><strong id="pos-bar">Bar –</strong><span id="pos-time">00:00</span></div>
+    </div>
+  </footer>
+</div>

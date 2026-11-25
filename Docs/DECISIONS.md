@@ -54,3 +54,28 @@ the scheduler drops stale events.
   how personal builds get installed (free provisioning vs paid membership).
   Package currently declares iOS 17 / macOS 14 minimums — confirm.
 - **Visual direction:** A (Studio instrument) is provisional; compare A/B/C.
+
+## D-008 · Run a web spike before committing to native (2026-11-25)
+**Decision:** Build a Quick Click web test (`web/`) and run it on the owner's
+iPad before choosing web-first or native for M0–M2.
+**Why:** A web app removes the "native tooling" risk (no Mac, Xcode or paid
+developer account; builds don't expire after 7 days) and can be built and tested
+from a cloud session. Known web weaknesses on iPad Safari: audio usually stops in
+the background, limited interruption/route information, no Web MIDI, storage the
+browser can clear. These hit performance features (M5–M6) more than practice.
+**Decide after:** the three checks in the test (30-minute steady run,
+interruptions, offline from the Home Screen). If they pass, go web-first for
+M0–M2 and keep native (or a Capacitor wrapper) for MIDI/stage work.
+
+## D-009 · Web timing uses double seconds, computed absolutely
+**Decision:** `web/src/timing.js` mirrors the Swift model but uses seconds as
+doubles on the AudioContext clock instead of rationals and frames.
+**Why:** Web Audio's API takes seconds and rounds to frames itself. Computing
+`anchor + k × step` directly keeps error below 1 µs over an hour (tested), so
+exact rationals add nothing here.
+
+## D-010 · Late clicks are skipped, not played late
+**Decision:** If the scheduler wakes after a click's time has passed, that click
+is dropped and counted as "missed".
+**Why:** A late click is a wrong click. Counting misses makes timer starvation
+visible in the test instead of hiding it as jitter.

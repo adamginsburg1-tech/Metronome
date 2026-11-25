@@ -23,3 +23,20 @@ are targets until evidence appears in this file.
 
 **Not yet tested (needs Mac/iPad):** real playback, latency, transport stop
 response, audio session interruptions, UI, accessibility.
+
+## 2026-11-25 · Web test: timing core and browser smoke test (Linux)
+
+- **Environment:** Node 22.23, headless Chromium (Playwright), Ubuntu 24.04. Not an iPad.
+- **Timing core:** `node --test 'web/test/*.test.js'`, 11 tests, 0 failures. Covers exact
+  60/120/300 BPM grids, meter defaults matching Swift, 6/8 dotted quarter,
+  septuplets at 113.37 BPM within 1 µs over an hour, random adjacent windows
+  with no repeats or gaps, count-in, muting, tempo and meter changes at the next bar.
+- **Smoke test** (home-screen build served locally, 1180×820):
+  Start → Running; +5 BPM while playing queued for the next bar and applied;
+  11 clicks scheduled in ~5 s, 0 missed, worst timer gap 37 ms, tightest lead 120 ms;
+  offline copy installed and controlling the page; Stop → Ready; no console
+  errors; no horizontal overflow at 390 px wide. Wake lock is refused in headless
+  Chromium (expected).
+
+**Not yet tested:** anything on the iPad, which is the point of the test. See
+the checklist in the page.
