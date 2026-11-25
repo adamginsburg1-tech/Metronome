@@ -117,3 +117,13 @@ from the next bar number. Stop sits beside Resume while paused.
 ## D-015 · Count-in modes (owner, O-4)
 Every start (including Resume, default) / First start only (first Start after
 opening) / Off, with a 1- or 2-bar length.
+
+## D-016 · The click plays in silent mode (owner requirement)
+**Decision:** On by default, with a setting to turn it off. Two methods together:
+`navigator.audioSession.type = "playback"` where supported (Safari 16.4+), and a
+looping, inaudible `<audio>` track started from the Start tap, which moves the
+page into playback in browsers without that API (likely Chrome on iPad). The
+track keeps playing while paused and stops on Stop.
+**Trade-off:** Playback audio may pause music from other apps, which matters if
+you play along to a track. The test checklist now checks both. A native app
+would face the same choice (`.playback` vs `.mixWithOthers`).

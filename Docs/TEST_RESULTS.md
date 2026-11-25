@@ -93,3 +93,12 @@ status "Stopped"; no console errors.
   hiccup: 2 clicks were skipped…", playback kept running, no stop banner; the
   notice was gone after 5 s.
 - No console errors; no overflow at 390 px.
+
+## 2026-11-25 · Play in silent mode (headless Chromium)
+
+With a simulated `navigator.audioSession`: Start set it to "playback" and started
+the silent track ("on (audio session + silent track)"); Pause kept both; Stop
+released the track; turning the setting off set the session back to "auto".
+Without the API: the silent track alone engaged ("on (silent track)"). Checklist
+shows "3 · Silent mode". No console errors. Whether the click is audible with
+silent mode on can only be checked on the iPad.

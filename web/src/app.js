@@ -71,7 +71,15 @@
       ].map((r) => ({ ...r, options: ["Not tried", "Kept playing", "Stopped with a message", "Stopped silently", "Something else (see notes)"] })),
     },
     {
-      id: "offline", title: "3 · Offline from the Home Screen",
+      id: "silent", title: "3 · Silent mode",
+      text: "Turn on silent mode (Control Center, or the switch on older iPads) and press Start. Then start music in another app and come back to POCKET.",
+      rows: [
+        { id: "silentPlays", label: "Silent mode on: the click still plays", options: ["Not tried", "Plays", "Silent", "Plays only after a second Start"] },
+        { id: "silentMusic", label: "Music from another app while POCKET plays", options: ["Not tried", "Both play", "Music stopped", "POCKET went silent"] },
+      ],
+    },
+    {
+      id: "offline", title: "4 · Offline from the Home Screen",
       text: `Needs the hosted home-screen version, not this preview. ${installSteps()}. Open it once, turn on Airplane Mode, close it fully, reopen and press Start.`,
       rows: [{ id: "offline", label: "Opens and plays offline", options: ["Not tried", "Works offline", "Doesn't load", "Loads but no sound"] }],
     },
@@ -85,7 +93,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, sound: settings.sound, volume: settings.volume,
-        awake: settings.awake, routeStop: settings.routeStop, answers, notes: $("notes").value,
+        awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -105,6 +113,8 @@
     volume: Number.isFinite(stored.volume) ? stored.volume : 60,
     awake: ["off", "playing", "always"].includes(stored.awake) ? stored.awake : stored.wake === false ? "off" : "always",
     routeStop: stored.routeStop ?? true,
+    // Play even when the iPad is on silent (owner requirement). On by default.
+    playOnSilent: stored.playOnSilent ?? true,
   };
   const answers = stored.answers || {};
 
@@ -242,14 +252,83 @@
   const volumeGain = (pct) => Math.pow(pct / 100, 2);
   const ms = (s) => (typeof s === "number" && Number.isFinite(s) ? `${(s * 1000).toFixed(1)} ms` : "n/a");
 
+  // ---------- playing through silent mode ----------
+  // iPadOS treats web audio as "ambient" by default, so silent mode mutes it.
+  // Two ways to switch the page to "playback", used together:
+  //  1. navigator.audioSession.type = "playback" (Safari 16.4+; may be missing in
+  //     Chrome and other iPad browsers).
+  //  2. A looping, inaudible <audio> track started from the Start tap. Playing a
+  //     media element moves the page into playback, which Web Audio follows.
+  // Playback audio can pause music playing in other apps; the test checks that.
+  const silentState = { track: null, status: "off" };
+
+  function silentTrackUrl() {
+    // 1 s of 16-bit mono silence at 8 kHz as a WAV data URI.
+    const rate = 8000, samples = rate, dataBytes = samples * 2;
+    const buf = new ArrayBuffer(44 + dataBytes);
+    const v = new DataView(buf);
+    const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+    str(0, "RIFF"); v.setUint32(4, 36 + dataBytes, true); str(8, "WAVE");
+    str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    str(36, "data"); v.setUint32(40, dataBytes, true);
+    let bin = "";
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return "data:audio/wav;base64," + btoa(bin);
+  }
+
   function setAudioSession() {
+    const wanted = settings.playOnSilent ? "playback" : "auto";
     try {
-      if (navigator.audioSession && navigator.audioSession.type !== "playback") {
-        navigator.audioSession.type = "playback";
-        log("Audio session set to playback (plays with the silent switch on)", "info");
+      if (navigator.audioSession && navigator.audioSession.type !== wanted) {
+        navigator.audioSession.type = wanted;
+        log(`Audio session set to ${wanted}${wanted === "playback" ? " (plays in silent mode)" : ""}`, "info");
       }
     } catch (e) { log(`Could not set audio session: ${e.message}`, "warn"); }
   }
+
+  /** Call from the Start/Resume tap so the browser allows playback. */
+  async function startSilentTrack() {
+    if (!settings.playOnSilent) { stopSilentTrack(); return; }
+    if (!silentState.track) {
+      const a = document.createElement("audio");
+      a.src = silentTrackUrl();
+      a.loop = true;
+      a.preload = "auto";
+      a.setAttribute("playsinline", "");
+      a.setAttribute("aria-hidden", "true");
+      a.addEventListener("pause", () => {
+        if (silentState.status === "on" && isRunning()) log("Silent-mode track was paused by the system; silent mode may mute the click", "warn");
+      });
+      silentState.track = a;
+      if ("mediaSession" in navigator && window.MediaMetadata) {
+        try { navigator.mediaSession.metadata = new MediaMetadata({ title: "POCKET click", artist: "POCKET" }); } catch { /* optional */ }
+      }
+    }
+    if (!silentState.track.paused) return;
+    try {
+      await silentState.track.play();
+      silentState.status = "on";
+      log("Silent-mode track playing (click plays in silent mode)", "info");
+    } catch (e) {
+      silentState.status = "blocked";
+      log(`Silent-mode track blocked (${e.message}); relying on the audio session setting`, "warn");
+    }
+  }
+  function stopSilentTrack() {
+    if (silentState.track && !silentState.track.paused) silentState.track.pause();
+    if (silentState.status === "on") silentState.status = "off";
+  }
+  function silentModeStatus() {
+    if (!settings.playOnSilent) return "off (silent mode mutes the click)";
+    const parts = [];
+    if (navigator.audioSession && navigator.audioSession.type === "playback") parts.push("audio session");
+    if (silentState.status === "on") parts.push("silent track");
+    if (parts.length) return `on (${parts.join(" + ")})`;
+    return silentState.status === "blocked" ? "track blocked; may be muted" : "on from next Start";
+  }
+
 
   // ---------- transport ----------
   const isRunning = () => eng.status === "playing" || eng.status === "countIn";
@@ -266,8 +345,10 @@
     hideBanner();
     try {
       setAudioSession();
+      const track = startSilentTrack(); // same tap as Start, so the browser allows it
       ensureAudio();
       if (eng.ctx.state !== "running") await eng.ctx.resume();
+      await track;
       if (eng.ctx.state !== "running") throw new Error(`audio is ${eng.ctx.state}`);
       const pattern = currentPattern();
       const tempo = currentTempo();
@@ -330,6 +411,7 @@
   function stop(reason, cause = "") {
     if ((eng.status === "idle" || eng.status === "interrupted") && !reason) return;
     silence();
+    stopSilentTrack();
     if (reason) {
       stats.interruptions++;
       setStatus("interrupted");
@@ -785,6 +867,7 @@
       "Base latency": ctx ? ms(ctx.baseLatency) : "–",
       "Output latency": ctx ? ms(ctx.outputLatency) : "–",
       "Audio session": navigator.audioSession ? navigator.audioSession.type : "not supported",
+      "Plays in silent mode": silentModeStatus(),
       "Screen wake lock": "wakeLock" in navigator ? "supported" : "not supported",
       "Keeping screen awake": { wakeLock: "yes (Wake Lock)", video: "yes (silent video)", needsTap: "needs a tap", unavailable: "not possible", off: "no" }[awakeState.method],
     };
@@ -860,7 +943,7 @@
     lines.push(`  Tightest lead: ${Number.isFinite(stats.minHeadroom) ? (stats.minHeadroom * 1000).toFixed(1) + " ms" : "n/a"}`);
     lines.push(`  Audio vs system clock: ${stats.driftPpm === null ? "n/a" : stats.driftPpm.toFixed(1) + " ppm"}`);
     lines.push(`  Interruptions: ${stats.interruptions}`);
-    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, ${settings.sound}, volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}`);
+    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, ${settings.sound}, volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}, play in silent mode ${settings.playOnSilent}`);
     lines.push("", "Checklist");
     for (const c of CHECKS) for (const r of c.rows) lines.push(`  ${r.label}: ${answers[r.id] || "Not tried"}`);
     lines.push("", "Notes", `  ${$("notes").value.trim() || "(none)"}`, "", "Event log (oldest first)");
@@ -983,6 +1066,14 @@
     settings.volume = Number(e.target.value);
     $("volume-out").textContent = `${settings.volume}%`;
     if (eng.master) eng.master.gain.setTargetAtTime(volumeGain(settings.volume), eng.ctx.currentTime, 0.015);
+    saveStore();
+  });
+  $("opt-silent").checked = settings.playOnSilent;
+  $("opt-silent").addEventListener("change", (e) => {
+    settings.playOnSilent = e.target.checked;
+    log(`Play in silent mode: ${settings.playOnSilent ? "on" : "off"} (applies from the next Start)`);
+    setAudioSession();
+    if (!settings.playOnSilent) stopSilentTrack();
     saveStore();
   });
   $("opt-route").checked = settings.routeStop;

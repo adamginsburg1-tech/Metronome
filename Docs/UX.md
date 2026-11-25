@@ -105,6 +105,13 @@ on the bar line.
 - The position readout says "Count-in 1 … 4", then "Bar 1".
 - Stop during the count-in returns to Ready.
 
+### J7 · Silent mode
+- The click plays even when the iPad is on silent. Setting: "Play even when the
+  iPad is on silent" (on by default), with the note "May pause music playing in
+  another app."
+- Turning it off lets silent mode mute the click, and lets other apps' music
+  carry on. It applies from the next Start.
+
 ## Messages
 
 Every message says what happened, what POCKET did, and what to do, in under
