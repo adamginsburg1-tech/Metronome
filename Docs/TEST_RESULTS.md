@@ -47,3 +47,11 @@ Modes Off / While playing / Always checked with Wake Lock refused (fallback
 silent video plays) and with Wake Lock granted (simulated): correct method and
 status text in every mode, released on Stop in "While playing", released when
 set to Off, no console errors. Not yet checked on the iPad.
+
+## 2026-11-25 · Web test: browser detection (headless Chromium, spoofed identities)
+
+Chrome on iPad, Safari on iPad (desktop-mode user agent + touch), Chrome on a
+computer and Chrome on Android are each identified correctly with the right
+engine and install steps; playback starts with 0 missed clicks and keep-awake
+active in each. Only the engine of desktop Chrome was real; the iPad results
+show detection only, not real WebKit behaviour.

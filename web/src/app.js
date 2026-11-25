@@ -14,6 +14,27 @@
   const MIN_LEAD = 0.003;   // never schedule closer than this to "now"
   const IS_PWA = window.POCKET_PWA === true;
 
+  /** Which browser and engine this is. Every browser on iPad (Chrome included) runs WebKit. */
+  function detectBrowser() {
+    const ua = navigator.userAgent;
+    const ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    const device = ios ? (/iPhone|iPod/.test(ua) ? "iPhone" : "iPad") : /Android/.test(ua) ? "Android" : "computer";
+    let name;
+    if (ios) name = /CriOS/.test(ua) ? "Chrome" : /FxiOS/.test(ua) ? "Firefox" : /EdgiOS/.test(ua) ? "Edge" : "Safari";
+    else name = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Unknown browser";
+    const engine = ios || name === "Safari" ? "WebKit" : name === "Firefox" ? "Gecko" : "Blink";
+    return { name, device, ios, engine, label: `${name} on ${device === "computer" ? "a computer" : device} (${engine})` };
+  }
+  const BROWSER = detectBrowser();
+  function installSteps() {
+    if (BROWSER.ios && BROWSER.name === "Chrome") return "In Chrome, tap the Share icon in the address bar → Add to Home Screen";
+    if (BROWSER.ios && BROWSER.name === "Safari") return "In Safari, tap Share → Add to Home Screen";
+    if (BROWSER.ios) return "Use the browser's Share menu → Add to Home Screen";
+    if (BROWSER.device === "Android") return `In ${BROWSER.name}, tap the ⋮ menu → Add to Home screen`;
+    if (BROWSER.name === "Chrome" || BROWSER.name === "Edge") return `In ${BROWSER.name}, use the install icon in the address bar (or menu → Install POCKET)`;
+    return "Install it from the browser menu if offered";
+  }
+
   const METERS = [
     { id: "4/4", num: 4, den: 4 },
     { id: "3/4", num: 3, den: 4 },
@@ -33,7 +54,7 @@
   const CHECKS = [
     {
       id: "steady", title: "1 · Steady for 30 minutes",
-      text: "Wired headphones, your practice tempo, screen on. Let it run 30 minutes. It passes if it sounds steady and Missed clicks stays at 0.",
+      text: "Wired headphones, your practice tempo, screen on. Let it run 30 minutes. It passes if it sounds steady and Missed clicks stays at 0. To compare browsers, run the checks in each one (Safari, Chrome) and copy a report from each.",
       rows: [{ id: "steady", label: "30-minute run", options: ["Not tried", "Steady, 0 missed", "Heard a glitch", "Missed clicks"] }],
     },
     {
@@ -49,7 +70,7 @@
     },
     {
       id: "offline", title: "3 · Offline from the Home Screen",
-      text: "Needs the hosted home-screen version, not this preview. Share → Add to Home Screen, open it once, turn on Airplane Mode, close it fully, reopen and press Start.",
+      text: `Needs the hosted home-screen version, not this preview. ${installSteps()}. Open it once, turn on Airplane Mode, close it fully, reopen and press Start.`,
       rows: [{ id: "offline", label: "Opens and plays offline", options: ["Not tried", "Works offline", "Doesn't load", "Loads but no sound"] }],
     },
   ];
@@ -619,6 +640,7 @@
     const ctx = eng.ctx;
     const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
     return {
+      "Browser": BROWSER.label,
       "Version": IS_PWA ? "Home-screen build" : "Preview",
       "Opened from": standalone ? "Home Screen" : "Browser",
       "Offline copy": offlineStatus,
@@ -689,7 +711,7 @@
   }
 
   function buildReport() {
-    const lines = ["POCKET web test report", `Generated: ${new Date().toString()}`, `Browser: ${navigator.userAgent}`, ""];
+    const lines = ["POCKET web test report", `Generated: ${new Date().toString()}`, `Browser: ${BROWSER.label}`, `User agent: ${navigator.userAgent}`, ""];
     lines.push("Environment");
     for (const [k, v] of Object.entries(envInfo())) lines.push(`  ${k}: ${v}`);
     lines.push("", "Counters");
@@ -850,5 +872,5 @@
   updateAwake();
   setInterval(renderMetrics, 500);
   requestAnimationFrame(frame);
-  log(`Loaded ${IS_PWA ? "home-screen build" : "preview"}. Press Start to enable audio.`);
+  log(`Loaded ${IS_PWA ? "home-screen build" : "preview"} in ${BROWSER.label}. Press Start to enable audio.`);
 })();

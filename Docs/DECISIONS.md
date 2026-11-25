@@ -90,3 +90,12 @@ available everywhere (older iPadOS, some embedded views), so a fallback is neede
 **Limit:** This only prevents dimming and auto-lock while the page is in
 front. A web page cannot unlock the iPad or override the side button; a native
 app has the same limit (`isIdleTimerDisabled`).
+
+## D-012 · Support and compare Chrome as well as Safari
+**Decision:** The web test detects the browser and engine and shows it in the
+diagnostics and report, with install steps for that browser (Chrome on iPad:
+Share icon in the address bar → Add to Home Screen).
+**Why:** The owner wants Chrome covered. On iPad, Chrome uses Apple's WebKit
+engine like every other browser, so audio behaviour should match Safari, but
+features such as Wake Lock and home-screen installs can differ between
+Safari and apps built on WebKit. Running the checks in both settles it.
