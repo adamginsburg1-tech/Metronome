@@ -1,0 +1,38 @@
+# Backlog
+
+Status: ☐ todo · ◐ in progress · ☑ done. Milestones from plan §09.
+
+## M0 — Foundations (3–5 days)
+Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
+
+- ☑ Repo structure, tracking docs, CI running domain tests on Linux
+- ☑ **M0-01a** Pure timing module: rationals, meter + grouping, tempo with beat
+  unit, click pattern (accents, subdivisions 1–8), immutable playback plan,
+  count-in, windowed event queries, bar-boundary tempo change
+- ☑ **M0-01b** Timing tests: 60/120/300 BPM, 4/4 and 7/8, tuplets, all
+  meter × subdivision × tempo × sample-rate combinations, 60-minute drift,
+  random lookahead windows, many tempo changes
+- ☑ `pocket-timing-log` CLI to print the exact schedule as CSV
+- ☐ **M0-01c** *(needs Mac)* Xcode project (`App/`) depending on this package
+- ☐ **M0-01d** *(needs Mac)* `AudioCore`: AVAudioEngine graph, AVAudioSession
+  setup, preloaded click buffers scheduled from `events(in:)` with a 100–200 ms
+  lookahead; generation IDs; route-loss stop
+- ☐ **M0-01e** *(needs Mac)* One native Start/Stop control that writes a rendered
+  timing log (scheduled frame vs render-time sample time)
+- ☐ **M0-01f** *(needs iPad)* Validate on an actual iPad with wired output; record
+  loopback and compare onsets with `pocket-timing-log` (gate: ≥99% of
+  inter-onset residuals ≤ 1 ms)
+- ☐ Three Quick Click visual concepts (A Studio / B Analog / C Minimal stage),
+  compared on Quick Click + Practice flows; owner picks one
+
+## M1 — Quick Click (1–2 weeks)
+- ☐ TransportController state machine: idle → preparing → count-in → playing ↔
+  paused → stopped; error/interrupted require deliberate recovery
+- ☐ Tempo controls −5/−1/field/+1/+5, tap tempo; "next bar" queued display
+- ☐ Meter/grouping/subdivision/accent editing; sound + master volume; visual pulse
+- ☐ Presets + last-used state, offline persistence
+- ☐ Swing for paired divisions (plan §07)
+
+## Later (M2+)
+Interval trainer & gap click (segments + `.muted` already support this), session
+log, samples/mixer/grooves, library, songs/setlists, MIDI. See plan §09.
