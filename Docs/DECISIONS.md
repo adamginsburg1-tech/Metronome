@@ -127,3 +127,11 @@ track keeps playing while paused and stops on Stop.
 **Trade-off:** Playback audio may pause music from other apps, which matters if
 you play along to a track. The test checklist now checks both. A native app
 would face the same choice (`.playback` vs `.mixWithOthers`).
+
+## D-017 · Compare the three concepts live in the web test (M0)
+**Decision:** Build concepts A, B and C (plan §04) as switchable looks on the
+working Quick Click instead of static mockups, so they are judged by playing.
+A adds the plan's left rail; B adds a tempo dial; C hides setup behind one
+button and uses a moving beat bar instead of a full-screen flash.
+**Next:** the owner picks one (checklist "4 · Design concepts"); the winner is
+carried into the Practice screens. Dark-only for now by design.

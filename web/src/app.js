@@ -49,6 +49,11 @@
   const SUBDIVISIONS = [1, 2, 3, 4, 5, 6, 7];
   const COUNT_IN_MODES = [{ id: "every", label: "Every start" }, { id: "first", label: "First start only" }, { id: "off", label: "Off" }];
   const COUNT_IN_BARS = [1, 2];
+  const CONCEPTS = [
+    { id: "a", label: "A · Studio", name: "Studio instrument" },
+    { id: "b", label: "B · Workshop", name: "Analog workshop" },
+    { id: "c", label: "C · Stage", name: "Minimal stage" },
+  ];
   const TEMPO_CHANGE = [{ id: "beat", label: "Next beat" }, { id: "bar", label: "Next bar" }];
   const SOUNDS = [{ id: "wood", label: "Wood" }, { id: "beep", label: "Beep" }];
   const CYCLE = [L.downbeat, L.group, L.normal, L.muted];
@@ -79,7 +84,12 @@
       ],
     },
     {
-      id: "offline", title: "4 · Offline from the Home Screen",
+      id: "concepts", title: "4 · Design concepts",
+      text: "Switch between A, B and C at the top. Use each for a real practice stretch, in daylight and at night, at your stand. Note which you'd keep.",
+      rows: CONCEPTS.map((c) => ({ id: `concept-${c.id}`, label: `${c.label} (${c.name})`, options: ["Not tried", "Favourite", "Usable", "Not for me"] })),
+    },
+    {
+      id: "offline", title: "5 · Offline from the Home Screen",
       text: `Needs the hosted home-screen version, not this preview. ${installSteps()}. Open it once, turn on Airplane Mode, close it fully, reopen and press Start.`,
       rows: [{ id: "offline", label: "Opens and plays offline", options: ["Not tried", "Works offline", "Doesn't load", "Loads but no sound"] }],
     },
@@ -93,7 +103,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, sound: settings.sound, volume: settings.volume,
-        awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, answers, notes: $("notes").value,
+        awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -115,6 +125,8 @@
     routeStop: stored.routeStop ?? true,
     // Play even when the iPad is on silent (owner requirement). On by default.
     playOnSilent: stored.playOnSilent ?? true,
+    // Visual concept being compared (plan §04): a Studio, b Workshop, c Stage.
+    concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "a",
   };
   const answers = stored.answers || {};
 
@@ -748,6 +760,7 @@
     $("bpm-display").textContent = fmtBpm(tempo.bpm);
     $("bpm-display").setAttribute("aria-label", `Tempo ${fmtBpm(tempo.bpm)} BPM. Tap to type a tempo.`);
     $("beat-glyph").textContent = glyphFor(tempo.beatUnit);
+    renderDial(tempo.bpm);
   }
   function renderTempoNote(error) {
     const note = $("tempo-note");
@@ -844,6 +857,12 @@
     chip("countin-bars-chips", COUNT_IN_BARS.map((n) => ({ id: n, label: `${n} bar${n > 1 ? "s" : ""}` })), (c) => c.id === settings.countInBars, (c) => { settings.countInBars = c.id; });
     $("countin-bars").hidden = settings.countInMode === "off";
     chip("tempo-change-chips", TEMPO_CHANGE, (t) => t.id === settings.tempoChange, (t) => { settings.tempoChange = t.id; log(`Tempo changes land on: ${t.label}`); });
+    chip("concept-chips", CONCEPTS, (c) => c.id === settings.concept, (c) => {
+      if (c.id === settings.concept) return;
+      settings.concept = c.id;
+      applyConcept();
+      log(`Design concept: ${c.label} (${c.name})`);
+    });
     chip("sound-chips", SOUNDS, (s) => s.id === settings.sound, (s) => { settings.sound = s.id; });
     chip("awake-chips", [{ id: "off", label: "Off" }, { id: "playing", label: "While playing" }, { id: "always", label: "Always" }],
       (a) => a.id === settings.awake, (a) => {
@@ -861,6 +880,7 @@
     return {
       "Browser": BROWSER.label,
       "Version": IS_PWA ? "Home-screen build" : "Preview",
+      "Design concept": CONCEPTS.find((c) => c.id === settings.concept).label,
       "Opened from": standalone ? "Home Screen" : "Browser",
       "Offline copy": offlineStatus,
       "Sample rate": ctx ? `${ctx.sampleRate} Hz` : "starts with audio",
@@ -1126,7 +1146,82 @@
     offlineStatus = "not supported";
   }
 
+  // ---------- design concepts ----------
+  function applyConcept() {
+    document.documentElement.dataset.concept = settings.concept;
+    saveStore();
+  }
+  $("stage-toggle").addEventListener("click", () => {
+    const root = document.documentElement;
+    const open = !("stageOpen" in root.dataset);
+    if (open) root.dataset.stageOpen = ""; else delete root.dataset.stageOpen;
+    $("stage-toggle").setAttribute("aria-expanded", String(open));
+    $("stage-toggle").textContent = open ? "Hide setup and test results" : "Show setup and test results";
+  });
+
+  // Tempo dial (concept B): drag up or right to speed up, 4 px per BPM.
+  // The pointer sweeps 270° across 20–300 BPM. Arrow keys ±1, Page Up/Down ±5.
+  const DIAL_SWEEP = 270;
+  function buildDial() {
+    const ns = "http://www.w3.org/2000/svg";
+    const el = (name, attrs) => { const n = document.createElementNS(ns, name); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+    const svg = el("svg", { viewBox: "-60 -60 120 120", "aria-hidden": "true" });
+    const defs = el("defs", {});
+    const grad = el("radialGradient", { id: "dial-knob", cx: "45%", cy: "35%", r: "75%" });
+    grad.append(el("stop", { offset: "0%", "stop-color": "#4a443b" }), el("stop", { offset: "100%", "stop-color": "#1f1c18" }));
+    defs.append(grad);
+    svg.append(defs);
+    for (let i = 0; i <= 28; i++) {
+      const bpm = 20 + i * 10;
+      const a = ((-DIAL_SWEEP / 2 + (i / 28) * DIAL_SWEEP) - 90) * (Math.PI / 180);
+      const major = bpm % 50 === 0 || bpm === 20;
+      const r1 = major ? 46 : 48, r2 = 53;
+      svg.append(el("line", { class: `tick${major ? " major" : ""}`, x1: r1 * Math.cos(a), y1: r1 * Math.sin(a), x2: r2 * Math.cos(a), y2: r2 * Math.sin(a) }));
+      if (bpm === 20 || bpm === 100 || bpm === 200 || bpm === 300) {
+        svg.append(Object.assign(el("text", { class: "tick-label", x: 60 * Math.cos(a), y: 60 * Math.sin(a) }), { textContent: String(bpm) }));
+      }
+    }
+    svg.append(el("circle", { class: "knob", r: 40 }));
+    for (const r of [34, 28]) svg.append(el("circle", { class: "grip", r }));
+    const pointer = el("g", { id: "dial-pointer" });
+    pointer.append(el("line", { class: "pointer", x1: 0, y1: -18, x2: 0, y2: -36 }));
+    svg.append(pointer);
+    $("dial").append(svg);
+  }
+  function renderDial(bpm) {
+    const pointer = document.getElementById("dial-pointer");
+    if (!pointer) return;
+    const angle = -DIAL_SWEEP / 2 + ((bpm - T.TEMPO_MIN) / (T.TEMPO_MAX - T.TEMPO_MIN)) * DIAL_SWEEP;
+    pointer.setAttribute("transform", `rotate(${angle.toFixed(2)})`);
+    const dial = $("dial");
+    dial.setAttribute("aria-valuenow", String(bpm));
+    dial.setAttribute("aria-valuetext", `${fmtBpm(bpm)} BPM`);
+  }
+  (function wireDial() {
+    const dial = $("dial");
+    let drag = null;
+    dial.addEventListener("pointerdown", (e) => {
+      dial.setPointerCapture(e.pointerId);
+      drag = { x: e.clientX, y: e.clientY, start: Math.round(settings.bpm) };
+    });
+    dial.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      const moved = (drag.y - e.clientY) + (e.clientX - drag.x);
+      const next = drag.start + Math.trunc(moved / 4);
+      if (next !== Math.round(settings.bpm)) setBpm(next);
+    });
+    for (const type of ["pointerup", "pointercancel"]) dial.addEventListener(type, () => { drag = null; });
+    dial.addEventListener("keydown", (e) => {
+      const step = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 }[e.key];
+      if (step) { e.preventDefault(); setBpm(Math.round(settings.bpm) + step); }
+      if (e.key === "Home") { e.preventDefault(); setBpm(T.TEMPO_MIN); }
+      if (e.key === "End") { e.preventDefault(); setBpm(T.TEMPO_MAX); }
+    });
+  })();
+
   // ---------- boot ----------
+  buildDial();
+  applyConcept();
   renderTempo();
   renderBeats();
   renderSetup();

@@ -40,7 +40,21 @@ Tempo (bpm, beatUnit) ────┘     (role, bars?)          (immutable)    
   (7/8 = 2+2+3, 5/8 = 2+3); group starts get `group`.
 - Compound meters count BPM in dotted notes.
 
-## Visual system
-Not started. Tokens from plan §04 (provisional direction A): canvas `#14171B`,
-surface `#272C33`, text `#E9E6DD`, muted `#A9B2BC`, accent amber `#D6A356`,
-active lime `#A6D66C`, info blue `#82B8D5`, danger `#FF7777`.
+## Visual system: three concepts to compare (plan §04)
+
+The web test switches between them live (top bar: A · Studio / B · Workshop /
+C · Stage). All three run the same engine and flows; only presentation differs.
+Each is defined as a token set on `:root[data-concept]` plus a few
+concept-specific rules in `web/src/styles.css`.
+
+| | A · Studio instrument | B · Analog workshop | C · Minimal stage |
+|---|---|---|---|
+| Palette | Graphite `#14171B`, amber `#D6A356`, lime running, blue editing | Warm charcoal `#1B1916`, ivory plates `#E6DCC3`, muted brass `#C9A46C`, olive | Near-black `#070809`, brighter amber `#E3AA52` |
+| Type | System UI, rounded numerals, BPM 56–88 px | Same faces; ivory digits in a recessed display window; ivory label plates | BPM up to 280 px |
+| Controls | Flat modules, chips, 56 px nudges | Bevelled hardware keys with an LED on the selected key; **tempo dial** (drag up/right, 4 px per BPM; arrows ±1, Page Up/Down ±5) | 80 px nudges, 88 px transport, setup and results behind one button |
+| Beats | Rings with dots sized by accent | Indicator lamps; accent shown by bezel | Full-width blocks; the lit block moves along the bar (no full-screen flash, plan §10) |
+| Navigation | Left rail (Click · Practice · Groove · Library) on wide screens | Same | None (stage) |
+
+What to judge (plan): the same Quick Click flow in each; night readability and
+density for B; full-screen use for C. Record the verdict in the test checklist
+("4 · Design concepts").

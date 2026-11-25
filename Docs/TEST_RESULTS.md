@@ -102,3 +102,12 @@ released the track; turning the setting off set the session back to "auto".
 Without the API: the silent track alone engaged ("on (silent track)"). Checklist
 shows "3 · Silent mode". No console errors. Whether the click is audible with
 silent mode on can only be checked on the iPad.
+
+## 2026-11-25 · Design concepts A/B/C (headless Chromium)
+
+Switching concepts sets the look live with playback running. A and B show the
+workspace rail at 1180 px; B shows the dial; C hides rail, dial, setup and
+results, and "Show setup and test results" reveals them. Dial: dragging 40 px up
+went 120 → 130; Page Up added 5. No horizontal overflow at 390 px in any concept;
+no console errors. Screenshots reviewed at 1180×820 and 390×844. Not yet judged
+on the iPad or at night.

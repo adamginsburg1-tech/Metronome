@@ -1,7 +1,10 @@
 <div class="app">
   <header class="topbar">
     <div class="brand"><strong>POCKET</strong><span>Web test · Quick Click</span></div>
-    <div class="pill" id="status-pill" data-state="idle" role="status">Ready</div>
+    <div class="topbar-end">
+      <div class="concepts" role="group" aria-label="Design concept" id="concept-chips"></div>
+      <div class="pill" id="status-pill" data-state="idle" role="status">Ready</div>
+    </div>
   </header>
 
   <div class="banner" id="banner" role="alert" hidden>
@@ -10,6 +13,13 @@
   </div>
 
   <main class="layout">
+    <nav class="rail" aria-label="Workspaces">
+      <button type="button" aria-current="page">Click</button>
+      <button type="button" disabled>Practice <small>Later</small></button>
+      <button type="button" disabled>Groove <small>Later</small></button>
+      <button type="button" disabled>Library <small>Later</small></button>
+    </nav>
+
     <section class="panel play" aria-label="Tempo">
       <div class="tempo">
         <span class="beat-glyph" id="beat-glyph" aria-hidden="true">♩</span>
@@ -17,6 +27,10 @@
         <input class="bpm-input" id="bpm-input" type="text" inputmode="decimal" autocomplete="off" aria-label="Tempo in BPM, 20 to 300" hidden>
         <span class="bpm-unit">BPM</span>
         <p class="tempo-note" id="tempo-note" aria-live="polite"></p>
+      </div>
+      <div class="dial-wrap">
+        <div class="dial" id="dial" role="slider" tabindex="0" aria-label="Tempo dial" aria-valuemin="20" aria-valuemax="300" aria-valuenow="120"></div>
+        <span class="dial-label">Drag up or right to speed up</span>
       </div>
       <div class="nudges">
         <button type="button" class="nudge" data-nudge="-5" aria-label="Slower by 5">−5</button>
@@ -31,9 +45,10 @@
         <div class="beats" id="beats-preview" aria-label="Beats from the next bar"></div>
       </div>
       <p class="hint">Tap a beat to change its accent: strong, group, normal, silent.</p>
+      <button type="button" class="btn stage-toggle" id="stage-toggle" aria-expanded="false" aria-controls="setup-panel results-panel">Show setup and test results</button>
     </section>
 
-    <section class="panel setup" aria-label="Click setup">
+    <section class="panel setup" id="setup-panel" aria-label="Click setup">
       <fieldset class="field"><legend>Meter</legend><div class="chips" id="meter-chips"></div></fieldset>
       <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="sub-chips"></div></fieldset>
       <fieldset class="field"><legend>Count-in</legend><div class="chips" id="countin-chips"></div></fieldset>
@@ -59,7 +74,7 @@
       </div>
     </section>
 
-    <section class="panel results" aria-label="Test results">
+    <section class="panel results" id="results-panel" aria-label="Test results">
       <div class="results-head">
         <h2>Test results</h2>
         <div class="actions">

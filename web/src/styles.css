@@ -1,6 +1,8 @@
 /* Layout: instrument panel — tempo surface left, setup right, test results
-   below; transport pinned to the bottom edge. Single dark look from plan §04
-   (direction A, "Studio instrument"), so no light theme by design. */
+   below; transport pinned to the bottom edge. Three dark concepts from plan §04,
+   switched with data-concept on <html>: A Studio instrument (default),
+   B Analog workshop, C Minimal stage. Dark by design: it's an instrument used
+   at a music stand, often at night, so there is no light theme. */
 :root {
   --canvas: #14171b;
   --surface: #272c33;
@@ -39,9 +41,13 @@ button { cursor: pointer; }
 
 /* Header */
 .topbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap;
   padding-block: 16px 12px;
 }
+.topbar-end { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.concepts { display: flex; gap: 4px; padding: 3px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-low); }
+.concepts .chip { min-height: 38px; border: 0; background: transparent; font-size: 13px; padding: 0 10px; }
+.concepts .chip[aria-pressed="true"] { background: var(--surface); color: var(--text); }
 .brand { display: flex; align-items: baseline; gap: 10px; }
 .brand strong { font-size: 20px; letter-spacing: 0.14em; font-weight: 800; }
 .brand span { color: var(--muted); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -69,10 +75,32 @@ button { cursor: pointer; }
 .layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
 .panel { background: var(--surface-low); border: 1px solid var(--line); border-radius: 14px; padding: 20px; min-width: 0; }
 .panel.results { grid-column: 1 / -1; }
+
+/* Workspace rail (plan §05 wireframe), wide screens only */
+.rail { display: none; }
+@media (min-width: 1000px) {
+  :root:not([data-concept="c"]) .layout { grid-template-columns: 112px minmax(0, 1.35fr) minmax(0, 1fr); }
+  :root:not([data-concept="c"]) .panel.results { grid-column: 2 / -1; }
+  :root:not([data-concept="c"]) .rail {
+    display: flex; flex-direction: column; gap: 4px; align-self: start;
+    position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px);
+  }
+}
+.rail button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-height: 52px; padding: 8px 12px; border-radius: 10px; border: 1px solid transparent;
+  background: none; color: var(--muted); text-align: left; font-weight: 600;
+}
+.rail button[aria-current="page"] { color: var(--text); background: var(--surface-low); border-color: var(--line); box-shadow: inset 3px 0 0 var(--accent); }
+.rail button:disabled { cursor: default; opacity: 0.6; }
+.rail small { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Concept-only parts, hidden unless their concept is active */
+.dial-wrap, .stage-toggle { display: none; }
 .panel h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 
 /* Tempo surface */
-.play { display: flex; flex-direction: column; gap: 20px; justify-content: center; }
+.play { display: flex; flex-direction: column; gap: 20px; justify-content: flex-start; align-self: start; }
 .tempo { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .beat-glyph { font-size: 34px; color: var(--muted); font-family: var(--font-ui); }
 .bpm {
@@ -219,4 +247,121 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .beat { transition: none; }
   .hiccup { transition: none; }
+}
+
+/* ============ Concept B · Analog workshop ============
+   Warm charcoal panel, ivory label plates, muted brass and olive, hardware keys,
+   indicator lamps and a tempo dial. */
+:root[data-concept="b"] {
+  --canvas: #1b1916;
+  --surface: #2b2722;
+  --surface-low: #221f1b;
+  --line: #3e3831;
+  --text: #ede5d2;
+  --muted: #b5ab93;
+  --accent: #c9a46c;
+  --accent-ink: #1e170c;
+  --active: #b8c78c;
+  --info: #a3bcc3;
+  --danger: #ea8c80;
+  --plate: #e6dcc3;
+  --plate-ink: #2b261d;
+}
+[data-concept="b"] .panel { border-radius: 6px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 0 rgb(0 0 0 / 0.4); }
+[data-concept="b"] .field legend, [data-concept="b"] .field > .label, [data-concept="b"] .panel h2, [data-concept="b"] .next-tag {
+  display: inline-block; width: fit-content; padding: 2px 8px; border-radius: 3px;
+  background: var(--plate); color: var(--plate-ink); font-weight: 700; letter-spacing: 0.14em;
+}
+[data-concept="b"] .chip, [data-concept="b"] .nudge, [data-concept="b"] .btn, [data-concept="b"] .transport .secondary {
+  border-radius: 5px; border: 1px solid #14120f;
+  background: linear-gradient(#36312a, #2a2621);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07), 0 2px 0 #12100d;
+}
+[data-concept="b"] .chip:active, [data-concept="b"] .nudge:active { transform: translateY(1px); box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.5); }
+[data-concept="b"] .chip[aria-pressed="true"] {
+  color: var(--text); background: linear-gradient(#2a2621, #322d27);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.55);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+[data-concept="b"] .chip[aria-pressed="true"]::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+[data-concept="b"] .concepts .chip[aria-pressed="true"]::before { display: none; }
+[data-concept="b"] .tempo {
+  padding: 14px 18px; border-radius: 6px; background: #12110e;
+  box-shadow: inset 0 2px 8px rgb(0 0 0 / 0.7); border: 1px solid #0c0b09;
+}
+[data-concept="b"] .bpm { color: var(--plate); letter-spacing: 0.02em; }
+[data-concept="b"] .beat { border: 2px solid #14120f; background: radial-gradient(circle at 50% 40%, #3a342c, #201d19); }
+[data-concept="b"] .beat::after { display: none; }
+[data-concept="b"] .beat[data-level="downbeat"] { box-shadow: 0 0 0 3px var(--plate); }
+[data-concept="b"] .beat[data-level="group"] { box-shadow: 0 0 0 2px var(--muted); }
+[data-concept="b"] .beat[data-level="muted"] { opacity: 0.45; border-style: dashed; border-color: var(--muted); }
+[data-concept="b"] .beat.on { background: radial-gradient(circle at 50% 40%, #ffe2a8, var(--accent) 55%, #8a6630); border-color: #14120f; }
+[data-concept="b"] .beat.on[data-role="countIn"] { background: radial-gradient(circle at 50% 40%, #e3f1f4, var(--info) 55%, #4f6a72); }
+[data-concept="b"] .start { border-radius: 6px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), 0 3px 0 #6e5228; }
+[data-concept="b"] .rail button[aria-current="page"] { border-radius: 5px; }
+
+[data-concept="b"] .dial-wrap { display: flex; align-items: center; gap: 18px; }
+.dial { width: 148px; height: 148px; flex: none; border-radius: 50%; touch-action: none; cursor: grab; }
+.dial:active { cursor: grabbing; }
+.dial svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.dial .tick { stroke: var(--muted); stroke-width: 1.5; }
+.dial .tick.major { stroke: var(--plate, var(--text)); stroke-width: 2.5; }
+.dial .tick-label { fill: var(--muted); font: 600 9px var(--font-ui); text-anchor: middle; dominant-baseline: middle; }
+.dial .knob { fill: url(#dial-knob); stroke: #0e0d0b; stroke-width: 2; }
+.dial .grip { stroke: rgb(255 255 255 / 0.05); stroke-width: 1; fill: none; }
+.dial .pointer { stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.dial:focus-visible { outline-offset: 6px; }
+.dial-label { color: var(--muted); font-size: 13px; max-width: 18ch; }
+
+/* ============ Concept C · Minimal stage ============
+   Near-black, huge numerals, a bold beat bar and only the controls needed on
+   stage. Setup and results sit behind one button. 72 pt+ targets. No flashing:
+   the pulse moves along the bar instead (plan §10). */
+:root[data-concept="c"] {
+  --canvas: #070809;
+  --surface: #16181b;
+  --surface-low: #0d0f11;
+  --line: #272b30;
+  --text: #f3f0e7;
+  --muted: #9ea7b1;
+  --accent: #e3aa52;
+  --accent-ink: #1e1407;
+  --active: #b8e47d;
+  --info: #8cc4e0;
+  --danger: #ff7f7f;
+  --transport-h: 96px;
+}
+[data-concept="c"] .layout { grid-template-columns: minmax(0, 1fr); }
+[data-concept="c"] .play { border: 0; background: transparent; padding: 8px 0 0; gap: 28px; min-height: calc(100dvh - 220px); justify-content: center; align-self: stretch; }
+[data-concept="c"] .tempo { justify-content: center; align-items: center; gap: 4px 18px; }
+[data-concept="c"] .bpm { font-size: clamp(120px, 24vw, 280px); letter-spacing: -0.04em; font-weight: 800; }
+[data-concept="c"] .beat-glyph { font-size: clamp(36px, 5vw, 56px); }
+[data-concept="c"] .bpm-unit { font-size: 18px; }
+[data-concept="c"] .tempo-note { text-align: center; font-size: 20px; }
+[data-concept="c"] .nudges { gap: 12px; }
+[data-concept="c"] .nudge { min-height: 80px; font-size: 26px; border-radius: 14px; }
+[data-concept="c"] .beats, [data-concept="c"] .beats-next .beats { flex-wrap: nowrap; gap: 14px; }
+[data-concept="c"] .beat-group { flex: 1; gap: 8px; }
+[data-concept="c"] .beat { flex: 1; width: auto; height: 76px; border-radius: 10px; border-width: 3px; background: var(--surface-low); }
+[data-concept="c"] .beats-next .beat { height: 44px; }
+[data-concept="c"] .beat::after { display: none; }
+[data-concept="c"] .beat[data-level="downbeat"] { border-color: var(--text); border-width: 5px; }
+[data-concept="c"] .beat[data-level="group"] { border-color: var(--muted); border-width: 4px; }
+[data-concept="c"] .beat.on { background: var(--accent); border-color: var(--accent); }
+[data-concept="c"] .beat.on[data-role="countIn"] { background: var(--info); border-color: var(--info); }
+[data-concept="c"] .hint { display: none; }
+[data-concept="c"] .stage-toggle { display: block; align-self: center; }
+[data-concept="c"]:not([data-stage-open]) .setup, [data-concept="c"]:not([data-stage-open]) .results { display: none; }
+[data-concept="c"] .start { min-height: 88px; font-size: 26px; border-radius: 16px; }
+[data-concept="c"] .transport .secondary { min-height: 88px; min-width: 150px; font-size: 20px; border-radius: 16px; }
+[data-concept="c"] .transport { border-top: 0; }
+@media (max-width: 600px) {
+  [data-concept="c"] .beats { gap: 8px; }
+  [data-concept="c"] .beat-group { gap: 4px; }
+  [data-concept="c"] .beat { height: 60px; border-radius: 8px; }
+  [data-concept="c"] .nudge { min-height: 72px; font-size: 22px; }
+  [data-concept="c"] .transport .secondary { min-width: 0; padding: 0 16px; }
 }

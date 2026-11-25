@@ -41,8 +41,10 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☐ **M0-01f** *(needs iPad)* Validate on an actual iPad with wired output; record
   loopback and compare onsets with `pocket-timing-log` (gate: ≥99% of
   inter-onset residuals ≤ 1 ms)
-- ☐ Three Quick Click visual concepts (A Studio / B Analog / C Minimal stage),
-  compared on Quick Click + Practice flows; owner picks one
+- ☑ Three Quick Click visual concepts (A Studio / B Workshop / C Stage),
+  switchable live in the web test (D-017)
+- ☐ **Owner:** try A/B/C at the stand, day and night; pick one
+- ☐ Carry the chosen concept into the Practice screens
 
 ## M1 — Quick Click (1–2 weeks)
 - ☐ TransportController state machine: idle → preparing → count-in → playing ↔
