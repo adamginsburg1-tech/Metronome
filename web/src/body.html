@@ -41,8 +41,12 @@
           <output id="volume-out" for="volume">60%</output>
         </div>
       </div>
+      <fieldset class="field">
+        <legend>Keep screen awake</legend>
+        <div class="chips" id="awake-chips"></div>
+        <p class="awake-status" id="awake-status" role="status" data-state="off"></p>
+      </fieldset>
       <div class="field">
-        <label class="toggle"><input type="checkbox" id="opt-wake" checked> Keep screen on while playing</label>
         <label class="toggle"><input type="checkbox" id="opt-route" checked> Stop if the audio output changes</label>
       </div>
     </section>

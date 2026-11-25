@@ -79,3 +79,14 @@ exact rationals add nothing here.
 is dropped and counted as "missed".
 **Why:** A late click is a wrong click. Counting misses makes timer starvation
 visible in the test instead of hiding it as jitter.
+
+## D-011 · Keep the screen awake: Off / While playing / Always (default Always)
+**Decision:** A "Keep screen awake" setting uses the Wake Lock API, and falls
+back to a muted, inline, looping silent video (media from NoSleep.js, MIT) when
+Wake Lock is missing or refused. If the fallback needs a user gesture, the next
+tap anywhere starts it. The page shows which method is active.
+**Why:** The iPad must not dim or auto-lock mid-practice. Wake Lock is not
+available everywhere (older iPadOS, some embedded views), so a fallback is needed.
+**Limit:** This only prevents dimming and auto-lock while the page is in
+front. A web page cannot unlock the iPad or override the side button; a native
+app has the same limit (`isIdleTimerDisabled`).

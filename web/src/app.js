@@ -40,7 +40,7 @@
       id: "interrupt", title: "2 · Interruptions",
       text: "While it plays, try each one. Record what happened. The rule from the plan: it should never resume on its own.",
       rows: [
-        { id: "lock", label: "Screen dims or locks (turn off Keep screen on first)" },
+        { id: "lock", label: "Screen dims or locks (set Keep screen awake to Off first)" },
         { id: "notify", label: "A notification, timer or alarm" },
         { id: "unplug", label: "Unplug, then plug in the headphones" },
         { id: "switch", label: "Switch to another app, then come back" },
@@ -62,7 +62,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
         countIn: settings.countIn, sound: settings.sound, volume: settings.volume,
-        wake: settings.wake, routeStop: settings.routeStop, answers, notes: $("notes").value,
+        awake: settings.awake, routeStop: settings.routeStop, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -76,7 +76,7 @@
     countIn: COUNT_INS.includes(stored.countIn) ? stored.countIn : 1,
     sound: SOUNDS.some((s) => s.id === stored.sound) ? stored.sound : "wood",
     volume: Number.isFinite(stored.volume) ? stored.volume : 60,
-    wake: stored.wake ?? true,
+    awake: ["off", "playing", "always"].includes(stored.awake) ? stored.awake : stored.wake === false ? "off" : "always",
     routeStop: stored.routeStop ?? true,
   };
   const answers = stored.answers || {};
@@ -232,7 +232,6 @@
       log(`Start: ${fmtBpm(tempo.bpm)} BPM, ${pattern.meter.label}, subdivision ${pattern.subdivision}, count-in ${settings.countIn}`);
       startTimer();
       schedule();
-      if (settings.wake) acquireWakeLock();
     } catch (err) {
       setStatus("idle");
       log(`Start failed: ${err.message}`, "warn");
@@ -250,7 +249,6 @@
     eng.queuedBar = null;
     if (eng.runStartPerf) stats.runSeconds += (performance.now() - eng.runStartPerf) / 1000;
     eng.runStartPerf = 0;
-    releaseWakeLock();
     if (reason) {
       stats.interruptions++;
       setStatus("interrupted");
@@ -273,6 +271,7 @@
     btn.dataset.running = String(running);
     btn.textContent = running ? "Stop" : "Start";
     if (!running) { eng.currentUnit = -1; renderActiveBeat(); }
+    updateAwake();
   }
 
   function startTimer() {
@@ -374,8 +373,8 @@
       const missed = stats.missed - eng.missedAtHide;
       log(`Page visible after ${away} s; ${missed} clicks missed while away; audio ${eng.ctx ? eng.ctx.state : "not started"}`, missed ? "warn" : "info");
       eng.hiddenAt = null;
-      if (playing && settings.wake) acquireWakeLock();
     }
+    updateAwake();
   });
   window.addEventListener("pagehide", (e) => log(`Page hide${e.persisted ? " (kept in memory)" : ""}`));
   window.addEventListener("pageshow", (e) => { if (e.persisted) log("Page restored from memory"); });
@@ -393,15 +392,103 @@
     });
   }
 
-  async function acquireWakeLock() {
-    if (!("wakeLock" in navigator) || eng.wakeLock || document.hidden) return;
-    try {
-      eng.wakeLock = await navigator.wakeLock.request("screen");
-      log("Screen will stay on", "info");
-      eng.wakeLock.addEventListener("release", () => { eng.wakeLock = null; log("Screen wake lock released"); });
-    } catch (e) { log(`Screen wake lock refused: ${e.message}`, "warn"); }
+  // ---------- keep the screen awake ----------
+  // Wake Lock API first; if it's missing or refused, a silent looping inline
+  // video (the NoSleep technique) keeps iPadOS from dimming and auto-locking.
+  // Either way it only works while this page is in front: a web page cannot
+  // unlock the iPad or stop the side button from locking it.
+  const awakeState = { method: "off", video: null, wantTap: false, busy: false, again: false };
+  function wantAwake() {
+    const running = eng.status === "playing" || eng.status === "countIn";
+    return !document.hidden && (settings.awake === "always" || (settings.awake === "playing" && running));
   }
-  function releaseWakeLock() { if (eng.wakeLock) { eng.wakeLock.release().catch(() => {}); eng.wakeLock = null; } }
+  async function updateAwake() {
+    if (awakeState.busy) { awakeState.again = true; return; }
+    awakeState.busy = true;
+    awakeState.again = false;
+    try {
+      if (!wantAwake()) { releaseAwake(); return; }
+      if (eng.wakeLock || (awakeState.video && !awakeState.video.paused)) return;
+      if ("wakeLock" in navigator) {
+        try {
+          const lock = await navigator.wakeLock.request("screen");
+          eng.wakeLock = lock;
+          lock.addEventListener("release", () => {
+            if (eng.wakeLock === lock) eng.wakeLock = null;
+            log("Screen wake lock released");
+            setAwakeMethod("off");
+            if (wantAwake()) setTimeout(updateAwake, 250);
+          });
+          setAwakeMethod("wakeLock");
+          log("Screen will stay awake (Wake Lock)", "info");
+          return;
+        } catch (e) {
+          log(`Wake Lock refused (${e.message}); trying the silent video`, "warn");
+        }
+      }
+      await startAwakeVideo();
+    } finally {
+      awakeState.busy = false;
+      renderAwake();
+      if (awakeState.again) updateAwake();
+    }
+  }
+  async function startAwakeVideo() {
+    const media = window.POCKET_NOSLEEP_MEDIA;
+    if (!media) { setAwakeMethod("unavailable"); return; }
+    if (!awakeState.video) {
+      const v = document.createElement("video");
+      v.setAttribute("playsinline", "");
+      v.setAttribute("muted", "");
+      v.setAttribute("title", "Keeps the screen awake");
+      v.setAttribute("aria-hidden", "true");
+      v.muted = true;
+      v.className = "awake-video";
+      for (const [type, src] of [["webm", media.webm], ["mp4", media.mp4]]) {
+        const source = document.createElement("source");
+        source.src = src;
+        source.type = `video/${type}`;
+        v.append(source);
+      }
+      // Loop by seeking: a plain loop attribute is unreliable for this on iOS.
+      v.addEventListener("timeupdate", () => { if (v.currentTime > 0.5) v.currentTime = Math.random() * 0.4; });
+      document.body.append(v);
+      awakeState.video = v;
+    }
+    try {
+      await awakeState.video.play();
+      awakeState.wantTap = false;
+      setAwakeMethod("video");
+      log("Screen will stay awake (silent video)", "info");
+    } catch (e) {
+      // Needs a tap first; the next tap anywhere retries.
+      awakeState.wantTap = true;
+      setAwakeMethod("needsTap");
+    }
+  }
+  function releaseAwake() {
+    if (eng.wakeLock) { const l = eng.wakeLock; eng.wakeLock = null; l.release().catch(() => {}); }
+    if (awakeState.video && !awakeState.video.paused) awakeState.video.pause();
+    awakeState.wantTap = false;
+    setAwakeMethod("off");
+  }
+  function setAwakeMethod(m) { awakeState.method = m; renderAwake(); }
+  function renderAwake() {
+    const el = document.getElementById("awake-status");
+    if (!el) return;
+    const text = {
+      wakeLock: "Screen is staying awake (Wake Lock).",
+      video: "Screen is staying awake (silent video).",
+      needsTap: "Tap anywhere to keep the screen awake.",
+      unavailable: "This browser can't keep the screen awake.",
+      off: settings.awake === "off" ? "Off: the iPad will dim and lock on its usual timer."
+        : settings.awake === "playing" ? "Will keep the screen awake while the click is playing."
+        : "Waiting to keep the screen awake.",
+    }[awakeState.method];
+    el.textContent = text;
+    el.dataset.state = awakeState.method;
+  }
+  document.addEventListener("pointerdown", () => { if (awakeState.wantTap || (wantAwake() && awakeState.method !== "wakeLock" && awakeState.method !== "video")) updateAwake(); }, true);
 
   // ---------- visual loop ----------
   function frame() {
@@ -518,6 +605,14 @@
     });
     chip("countin-chips", COUNT_INS.map((n) => ({ id: n, label: n === 0 ? "None" : `${n} bar${n > 1 ? "s" : ""}` })), (c) => c.id === settings.countIn, (c) => { settings.countIn = c.id; });
     chip("sound-chips", SOUNDS, (s) => s.id === settings.sound, (s) => { settings.sound = s.id; });
+    chip("awake-chips", [{ id: "off", label: "Off" }, { id: "playing", label: "While playing" }, { id: "always", label: "Always" }],
+      (a) => a.id === settings.awake, (a) => {
+        if (a.id === settings.awake) return;
+        settings.awake = a.id;
+        log(`Keep screen awake: ${a.label}`);
+        renderAwake();
+        updateAwake();
+      });
   }
 
   function envInfo() {
@@ -532,6 +627,7 @@
       "Output latency": ctx ? ms(ctx.outputLatency) : "–",
       "Audio session": navigator.audioSession ? navigator.audioSession.type : "not supported",
       "Screen wake lock": "wakeLock" in navigator ? "supported" : "not supported",
+      "Keeping screen awake": { wakeLock: "yes (Wake Lock)", video: "yes (silent video)", needsTap: "needs a tap", unavailable: "not possible", off: "no" }[awakeState.method],
     };
   }
   function renderMetrics() {
@@ -605,7 +701,7 @@
     lines.push(`  Tightest lead: ${Number.isFinite(stats.minHeadroom) ? (stats.minHeadroom * 1000).toFixed(1) + " ms" : "n/a"}`);
     lines.push(`  Audio vs system clock: ${stats.driftPpm === null ? "n/a" : stats.driftPpm.toFixed(1) + " ppm"}`);
     lines.push(`  Interruptions: ${stats.interruptions}`);
-    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countIn}, ${settings.sound}, volume ${settings.volume}%, keep screen on ${settings.wake}, stop on output change ${settings.routeStop}`);
+    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countIn}, ${settings.sound}, volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}`);
     lines.push("", "Checklist");
     for (const c of CHECKS) for (const r of c.rows) lines.push(`  ${r.label}: ${answers[r.id] || "Not tried"}`);
     lines.push("", "Notes", `  ${$("notes").value.trim() || "(none)"}`, "", "Event log (oldest first)");
@@ -694,12 +790,6 @@
     if (eng.master) eng.master.gain.setTargetAtTime(volumeGain(settings.volume), eng.ctx.currentTime, 0.015);
     saveStore();
   });
-  $("opt-wake").checked = settings.wake;
-  $("opt-wake").addEventListener("change", (e) => {
-    settings.wake = e.target.checked;
-    if (!settings.wake) releaseWakeLock(); else if (eng.status === "playing" || eng.status === "countIn") acquireWakeLock();
-    saveStore();
-  });
   $("opt-route").checked = settings.routeStop;
   $("opt-route").addEventListener("change", (e) => { settings.routeStop = e.target.checked; saveStore(); });
   $("notes").value = stored.notes || "";
@@ -756,6 +846,8 @@
   renderSetup();
   renderChecks();
   renderMetrics();
+  renderAwake();
+  updateAwake();
   setInterval(renderMetrics, 500);
   requestAnimationFrame(frame);
   log(`Loaded ${IS_PWA ? "home-screen build" : "preview"}. Press Start to enable audio.`);

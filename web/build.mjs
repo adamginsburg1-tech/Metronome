@@ -12,6 +12,7 @@ const read = (p) => readFileSync(join(root, p), "utf8");
 const css = read("src/styles.css");
 const body = read("src/body.html");
 const timing = read("src/timing.js");
+const nosleep = read("src/vendor/nosleep-media.js");
 const app = read("src/app.js");
 const TITLE = "POCKET Web Test";
 
@@ -26,6 +27,9 @@ writeFileSync(join(dist, "artifact.html"), `<title>${TITLE}</title>
 ${css}
 </style>
 ${body}
+<script>
+${nosleep}
+</script>
 <script>
 ${timing}
 </script>
@@ -58,6 +62,9 @@ ${css}
 <body>
 ${body}
 <script>window.POCKET_PWA = true;</script>
+<script>
+${nosleep}
+</script>
 <script>
 ${timing}
 </script>

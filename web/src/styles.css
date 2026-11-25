@@ -128,6 +128,10 @@ button { cursor: pointer; }
 .volume { display: flex; align-items: center; gap: 12px; }
 .volume input { flex: 1; accent-color: var(--accent); min-height: 44px; }
 .volume output { width: 4ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.awake-status { margin: 0; font-size: 13px; color: var(--muted); }
+.awake-status[data-state="wakeLock"], .awake-status[data-state="video"] { color: var(--active); }
+.awake-status[data-state="needsTap"], .awake-status[data-state="unavailable"] { color: var(--accent); }
+.awake-video { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; left: 0; bottom: 0; }
 .toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .toggle input { width: 22px; height: 22px; accent-color: var(--accent); }
 

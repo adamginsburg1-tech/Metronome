@@ -40,3 +40,10 @@ response, audio session interruptions, UI, accessibility.
 
 **Not yet tested:** anything on the iPad, which is the point of the test. See
 the checklist in the page.
+
+## 2026-11-25 · Web test: keep screen awake (headless Chromium)
+
+Modes Off / While playing / Always checked with Wake Lock refused (fallback
+silent video plays) and with Wake Lock granted (simulated): correct method and
+status text in every mode, released on Stop in "While playing", released when
+set to Off, no console errors. Not yet checked on the iPad.
