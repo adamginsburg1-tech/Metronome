@@ -78,7 +78,9 @@ whatever the tempo setting. If you change tempo and pattern together, both land
 on the bar line.
 
 - The beat row keeps following what you hear until the switch. The new pattern
-  shows as a preview with a "Next bar" tag, then takes over on the downbeat.
+  shows as a preview row tagged "Next bar · 3/4", then takes over on the
+  downbeat. While the preview shows, taps edit the preview (what you'll hear
+  next); the row you're hearing can't be edited.
 - Changing meter resets accents to that meter's default; changing subdivision
   keeps accents.
 - Tapping a beat cycles strong → group → normal → silent. A silent beat keeps
@@ -148,9 +150,9 @@ output-change setting, message placement, keyboard Start.
 | Count-in: Every start / First start only / Off | Added |
 | Stop on return after the system stopped audio or clicks were skipped in the background | Added |
 | "Tap again" / "Now 117 BPM" feedback | Added |
-| Beat row previews the next pattern instead of switching early | Not yet |
-| Hold ±1 to repeat | Not yet |
-| Non-blocking "timing hiccup" notice | Not yet (counted in diagnostics) |
+| Beat row previews the next pattern instead of switching early | Added |
+| Hold ±1 to repeat | Added |
+| Non-blocking "timing hiccup" notice | Added |
 
 ## Owner decisions (2026-11-25)
 

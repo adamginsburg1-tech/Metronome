@@ -79,3 +79,17 @@ status "Stopped"; no console errors.
   Stop from paused returns to Ready; "First start only" skips the count-in on the
   next Start; "Next bar" mode shows "Next bar: 126 BPM"; no console errors; no
   overflow at 390 px.
+
+## 2026-11-25 · Remaining Quick Click items (headless Chromium)
+
+- **Hold ±1:** holding +1 for 1 s went 120 → 125 (one step on press, then 8/s after
+  400 ms); no steps after release; sliding off stopped repeating (128 stayed 128);
+  Enter on a focused +1 still steps once.
+- **Pattern preview:** switching 4/4 → 3/4 while playing kept 4 dots in the main
+  row (not editable) and showed a 3-dot preview tagged "Next bar · 3/4"; an accent
+  tap edited the preview; at the bar line the main row became 3 dots with that
+  accent and the preview hid.
+- **Timing hiccup:** blocking the page for 700 ms while visible showed "Timing
+  hiccup: 2 clicks were skipped…", playback kept running, no stop banner; the
+  notice was gone after 5 s.
+- No console errors; no overflow at 390 px.

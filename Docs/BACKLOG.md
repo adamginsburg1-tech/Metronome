@@ -16,9 +16,9 @@ Status: ☐ todo · ◐ in progress · ☑ done. Milestones from plan §09.
   background, "Tap again" / "Next bar" / "Now" tempo feedback, 120 BPM default
 - ☑ Owner decisions O-1 to O-4: next-beat tempo changes (with Next bar setting),
   Pause/Resume, count-in modes; built in the web test and both timing cores
-- ☐ Beat row previews the next pattern instead of switching early
-- ☐ Hold ±1 to repeat
-- ☐ Non-blocking "timing hiccup" notice
+- ☑ Beat row previews the next pattern instead of switching early
+- ☑ Hold ±1 to repeat
+- ☑ Non-blocking "timing hiccup" notice
 - ☐ Practice routine UX (double-pedal ladder, stage log)
 
 ## M0 — Foundations (3–5 days)

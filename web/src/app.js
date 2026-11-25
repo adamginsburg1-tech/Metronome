@@ -115,6 +115,7 @@
     plan: null, scheduledUntil: 0, sources: new Set(), visual: [],
     pending: null, queued: null, nowNote: null,
     hasStarted: false, barOffset: 0, elapsedBefore: 0,
+    soundingPattern: null, catchingUp: false,
     worker: null, fallbackTimer: null, lastTick: 0,
     wakeLock: null, runStartPerf: 0, hiddenAt: null, missedAtHide: 0,
     clockRef: null, currentUnit: -1, currentRole: null, currentBar: null, countInBars: 0,
@@ -165,6 +166,22 @@
     const list = $("log");
     list.prepend(li);
     while (list.children.length > 200) list.lastChild.remove();
+  }
+
+  let hiccupCount = 0;
+  let hiccupTimer = null;
+  /** Non-blocking notice; counts add up while it's showing, then it fades after 5 s. */
+  function showHiccup(n) {
+    hiccupCount += n;
+    const el = $("hiccup");
+    el.textContent = `Timing hiccup: ${hiccupCount} click${hiccupCount === 1 ? " was" : "s were"} skipped. Close other apps if it happens again.`;
+    el.hidden = false;
+    el.classList.remove("fading");
+    clearTimeout(hiccupTimer);
+    hiccupTimer = setTimeout(() => {
+      el.classList.add("fading");
+      hiccupTimer = setTimeout(() => { el.hidden = true; el.classList.remove("fading"); hiccupCount = 0; }, 400);
+    }, 5000);
   }
 
   function showBanner(text) { $("banner-text").textContent = text; $("banner").hidden = false; }
@@ -267,6 +284,7 @@
       eng.clockRef = null;
       eng.countInBars = countIn;
       eng.currentBar = null;
+      eng.soundingPattern = pattern;
       eng.hasStarted = true;
       stats.starts++;
       setStatus(countIn > 0 ? "countIn" : "playing");
@@ -295,6 +313,8 @@
       eng.elapsedBefore += ran;
     }
     eng.runStartPerf = 0;
+    eng.soundingPattern = null;
+    renderBeats();
   }
 
   function pause() {
@@ -379,6 +399,9 @@
         stats.missed += missed.length;
         stats.missEvents++;
         log(`Missed ${missed.length} click${missed.length > 1 ? "s" : ""}: scheduler woke ${((now - from) * 1000).toFixed(0)} ms late${document.hidden ? " (page hidden)" : ""}`, "warn");
+        // On screen: tell the player without stopping (Docs/UX.md › Messages, "Timing hiccup").
+        // In the background the return-to-page rule handles it instead.
+        if (!document.hidden && !eng.catchingUp) showHiccup(missed.length);
       }
       from = now + MIN_LEAD;
     }
@@ -392,6 +415,7 @@
       src.start(e.time);
       eng.sources.add(src);
       src.onended = () => eng.sources.delete(src);
+      e.pattern = eng.plan.segments[e.segment].pattern;
       eng.visual.push(e);
       stats.scheduled++;
       stats.minHeadroom = Math.min(stats.minHeadroom, e.time - now);
@@ -458,7 +482,10 @@
       eng.hiddenAt = null;
       // Catch up first so clicks skipped while away are counted, then apply the
       // UX rule: if time was broken while away, stop and say so (Docs/UX.md).
-      if (playing && eng.ctx && eng.ctx.state === "running") schedule();
+      if (playing && eng.ctx && eng.ctx.state === "running") {
+        eng.catchingUp = true;
+        try { schedule(); } finally { eng.catchingUp = false; }
+      }
       const missed = stats.missed - eng.missedAtHide;
       log(`Page visible after ${away} s; ${missed} clicks missed while away; audio ${eng.ctx ? eng.ctx.state : "not started"}`, missed ? "warn" : "info");
       if (playing && eng.ctx && eng.ctx.state !== "running") {
@@ -596,6 +623,10 @@
         eng.queued = null;
         renderTempoNote();
       }
+      if (latest && latest.role === "music" && latest.pattern && patternKey(latest.pattern) !== patternKey(eng.soundingPattern)) {
+        eng.soundingPattern = latest.pattern;
+        renderBeats();
+      }
       if (latest && latest.sub === 0) {
         eng.currentUnit = latest.unit;
         eng.currentRole = latest.role;
@@ -647,30 +678,50 @@
     else note.textContent = "";
   }
 
+  const patternKey = (p) => (p ? `${p.meter.label}|${p.meter.grouping}|${p.accents}|${p.subdivision}` : "");
+  const describePattern = (p) => p.meter.label + (p.subdivision > 1 ? ` ÷${p.subdivision}` : "");
+
+  /**
+   * The main row shows what you hear. While playing, a pattern change you've
+   * made but that hasn't reached its bar line yet shows as a preview row tagged
+   * "Next bar"; taps then edit the preview (the pattern you'll hear next).
+   */
   function renderBeats() {
-    const meter = currentMeter();
-    const accents = currentAccents(meter);
-    const wrap = $("beats");
-    const key = `${meter.label}|${meter.grouping}|${accents}`;
-    if (wrap.dataset.key !== key) {
-      wrap.dataset.key = key;
-      wrap.textContent = "";
-      meter.grouping.forEach((size, gi) => {
-        const group = document.createElement("div");
-        group.className = "beat-group";
-        for (let j = 0; j < size; j++) {
-          const unit = meter.groupStarts[gi] + j;
-          const b = document.createElement("button");
-          b.type = "button";
-          b.className = "beat";
-          b.dataset.unit = String(unit);
-          b.dataset.level = T.LEVEL_NAMES[accents[unit]];
-          b.setAttribute("aria-label", `Beat ${unit + 1}: ${describeLevel(accents[unit])}. Tap to change.`);
-          group.append(b);
-        }
-        wrap.append(group);
-      });
+    const target = currentPattern();
+    const running = isRunning();
+    const shown = running && eng.soundingPattern ? eng.soundingPattern : target;
+    const preview = running && patternKey(shown) !== patternKey(target) ? target : null;
+    drawBeatRow($("beats"), shown, !preview);
+    $("beats-next").hidden = !preview;
+    if (preview) {
+      drawBeatRow($("beats-preview"), preview, true);
+      $("next-tag").textContent = `Next bar · ${describePattern(preview)}`;
     }
+  }
+  function drawBeatRow(wrap, pattern, editable) {
+    const meter = pattern.meter;
+    const key = `${patternKey(pattern)}|${editable}`;
+    if (wrap.dataset.key === key) return;
+    wrap.dataset.key = key;
+    wrap.textContent = "";
+    meter.grouping.forEach((size, gi) => {
+      const group = document.createElement("div");
+      group.className = "beat-group";
+      for (let j = 0; j < size; j++) {
+        const unit = meter.groupStarts[gi] + j;
+        const level = pattern.accents[unit];
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "beat";
+        b.dataset.unit = String(unit);
+        b.dataset.level = T.LEVEL_NAMES[level];
+        b.disabled = !editable;
+        b.setAttribute("aria-label", `Beat ${unit + 1}: ${describeLevel(level)}.${editable ? " Tap to change." : ""}`);
+        group.append(b);
+      }
+      wrap.append(group);
+    });
+    if (wrap.id === "beats") renderActiveBeat();
   }
   function renderActiveBeat() {
     for (const b of $("beats").children) for (const dot of b.children) {
@@ -701,11 +752,11 @@
       if (m.id === settings.meterId) return;
       settings.meterId = m.id;
       settings.accents = null;
-      renderTempo(); renderBeats(); queueChange("pattern");
+      renderTempo(); queueChange("pattern"); renderBeats();
     });
     const subNames = { 1: "off", 2: "÷2", 3: "÷3", 4: "÷4", 5: "÷5", 6: "÷6", 7: "÷7" };
     chip("sub-chips", SUBDIVISIONS.map((n) => ({ id: n, label: n === 1 ? "Off" : subNames[n] })), (s) => s.id === settings.subdivision, (s) => {
-      settings.subdivision = s.id; queueChange("pattern");
+      settings.subdivision = s.id; queueChange("pattern"); renderBeats();
     });
     chip("countin-chips", COUNT_IN_MODES, (c) => c.id === settings.countInMode, (c) => { settings.countInMode = c.id; });
     chip("countin-bars-chips", COUNT_IN_BARS.map((n) => ({ id: n, label: `${n} bar${n > 1 ? "s" : ""}` })), (c) => c.id === settings.countInBars, (c) => { settings.countInBars = c.id; });
@@ -831,7 +882,38 @@
   $("start").addEventListener("click", () => (isRunning() ? stop() : eng.status === "paused" ? start(true) : start()));
   $("pause").addEventListener("click", () => (isRunning() ? pause() : eng.status === "paused" ? stop() : null));
   $("banner-dismiss").addEventListener("click", () => { hideBanner(); if (eng.status === "interrupted") setStatus("idle"); });
-  document.querySelectorAll("[data-nudge]").forEach((b) => b.addEventListener("click", () => setBpm(Math.round(settings.bpm) + Number(b.dataset.nudge))));
+  // Nudges. ±1 repeats while held: after 400 ms, 8 steps a second, no
+  // acceleration; stops when the finger lifts or slides off (Docs/UX.md J3).
+  const HOLD_DELAY = 400;
+  const HOLD_RATE = 125;
+  const nudge = (b) => setBpm(Math.round(settings.bpm) + Number(b.dataset.nudge));
+  let hold = null;
+  function endHold() {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    clearInterval(hold.repeat);
+    hold = null;
+  }
+  document.querySelectorAll("[data-nudge]").forEach((b) => {
+    const repeats = Math.abs(Number(b.dataset.nudge)) === 1;
+    b.addEventListener("click", (e) => {
+      // Pointer presses already stepped on pointerdown; this handles keyboard and ±5.
+      if (repeats && e.detail !== 0) return;
+      nudge(b);
+    });
+    if (!repeats) return;
+    b.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      endHold();
+      // Touch captures the pointer implicitly; release it so sliding off ends the hold.
+      if (b.hasPointerCapture && b.hasPointerCapture(e.pointerId)) b.releasePointerCapture(e.pointerId);
+      nudge(b);
+      hold = { timer: setTimeout(() => { if (hold) hold.repeat = setInterval(() => nudge(b), HOLD_RATE); }, HOLD_DELAY) };
+    });
+    for (const type of ["pointerup", "pointercancel", "pointerleave", "lostpointercapture"]) b.addEventListener(type, endHold);
+    b.addEventListener("contextmenu", (e) => e.preventDefault());
+  });
+  window.addEventListener("blur", endHold);
 
   const taps = [];
   $("tap").addEventListener("click", () => {
@@ -879,19 +961,21 @@
   });
   bpmInput.addEventListener("blur", () => closeBpmEdit(true));
 
-  $("beats").addEventListener("click", (e) => {
+  function onBeatTap(e) {
     const dot = e.target.closest(".beat");
-    if (!dot) return;
+    if (!dot || dot.disabled) return;
     const meter = currentMeter();
     const accents = currentAccents(meter).slice();
     const unit = Number(dot.dataset.unit);
     accents[unit] = CYCLE[(CYCLE.indexOf(accents[unit]) + 1) % CYCLE.length];
     settings.accents = accents;
+    queueChange("pattern");
     renderBeats();
     renderActiveBeat();
-    queueChange("pattern");
     saveStore();
-  });
+  }
+  $("beats").addEventListener("click", onBeatTap);
+  $("beats-preview").addEventListener("click", onBeatTap);
 
   $("volume").value = String(settings.volume);
   $("volume-out").textContent = `${settings.volume}%`;

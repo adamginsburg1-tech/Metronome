@@ -112,6 +112,23 @@ button { cursor: pointer; }
 .beat[data-level="muted"]::after { width: 12px; height: 2px; border-radius: 1px; background: var(--muted); }
 .beat.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .beat.on[data-role="countIn"] { border-color: var(--info); background: color-mix(in srgb, var(--info) 22%, transparent); }
+.beat:disabled { cursor: default; }
+.beats-next {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--info) 55%, transparent);
+  background: color-mix(in srgb, var(--info) 7%, transparent);
+}
+.next-tag { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--info); }
+.nudges .nudge { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+.hiccup {
+  position: fixed; z-index: 6; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--transport-h) + 24px + env(safe-area-inset-bottom, 0px));
+  width: min(560px, calc(100% - 32px)); padding: 12px 16px; border-radius: 10px;
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--text); box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  transition: opacity 400ms ease;
+}
+.hiccup.fading { opacity: 0; }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 
 /* Setup */
@@ -201,4 +218,5 @@ button { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) {
   .beat { transition: none; }
+  .hiccup { transition: none; }
 }

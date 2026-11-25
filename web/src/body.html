@@ -26,6 +26,10 @@
         <button type="button" class="nudge" data-nudge="5" aria-label="Faster by 5">+5</button>
       </div>
       <div class="beats" id="beats" aria-label="Beats in the bar"></div>
+      <div class="beats-next" id="beats-next" hidden>
+        <span class="next-tag" id="next-tag">Next bar</span>
+        <div class="beats" id="beats-preview" aria-label="Beats from the next bar"></div>
+      </div>
       <p class="hint">Tap a beat to change its accent: strong, group, normal, silent.</p>
     </section>
 
@@ -70,6 +74,8 @@
       <div class="log-wrap"><ol class="log" id="log" aria-live="off"></ol></div>
     </section>
   </main>
+
+  <div class="hiccup" id="hiccup" role="status" hidden></div>
 
   <footer class="transport">
     <div class="transport-inner">
