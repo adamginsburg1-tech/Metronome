@@ -20,7 +20,7 @@ web-first and native (`Docs/DECISIONS.md` D-008). No native app exists yet.
 | `Tests/DomainTests/` | XCTest suite for the timing core |
 | `Tools/TimingLog/` | `pocket-timing-log`: prints a plan's exact click schedule as CSV |
 | `web/` | Web test: Quick Click on Web Audio with diagnostics, to decide web vs native (see `web/README.md`) |
-| `Docs/` | Master plan, DECISIONS, BACKLOG, DESIGN, TEST_RESULTS |
+| `Docs/` | Master plan, DECISIONS, BACKLOG, DESIGN, UX, TEST_RESULTS |
 
 Planned, not yet created: `App/`, `DesignSystem/`, `AudioCore/`,
 `Persistence/`, `Features/` (Xcode project on a Mac).

@@ -10,6 +10,16 @@ Status: ☐ todo · ◐ in progress · ☑ done. Milestones from plan §09.
   home-screen/offline check
 - ☐ Decide web-first vs native (D-008) and update this backlog
 
+## UX (platform-neutral, while the iPad test runs)
+- ☑ Quick Click UX spec: states, journeys J1–J6, message copy (`Docs/UX.md`)
+- ☑ Web test uses the spec's copy, stops on return when time broke in the
+  background, "Tap again" / "Next bar" / "Now" tempo feedback, 120 BPM default
+- ☐ **Owner:** answer O-1 to O-4 in `Docs/UX.md`
+- ☐ Beat row previews the next pattern instead of switching early
+- ☐ Hold ±1 to repeat
+- ☐ Non-blocking "timing hiccup" notice
+- ☐ Practice routine UX (double-pedal ladder, stage log)
+
 ## M0 — Foundations (3–5 days)
 Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 

@@ -55,3 +55,11 @@ computer and Chrome on Android are each identified correctly with the right
 engine and install steps; playback starts with 0 missed clicks and keep-awake
 active in each. Only the engine of desktop Chrome was real; the iPad results
 show detection only, not real WebKit behaviour.
+
+## 2026-11-25 · Web test: UX spec behaviours (headless Chromium)
+
+First launch shows 120 BPM; one tap on TAP shows "Tap again"; two +5 taps while
+playing show "Next bar: 130 BPM", only 130 is applied at bar 2, then "Now 130 BPM";
+a simulated background visit that starved the scheduler stopped playback on
+return with "Click stopped: POCKET skipped 1 click while in the background…" and
+status "Stopped"; no console errors.

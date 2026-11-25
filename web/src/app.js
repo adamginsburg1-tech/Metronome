@@ -90,7 +90,7 @@
   const stored = loadStore();
 
   const settings = {
-    bpm: clampBpm(stored.bpm ?? 112),
+    bpm: clampBpm(stored.bpm ?? 120),
     meterId: METERS.some((m) => m.id === stored.meterId) ? stored.meterId : "4/4",
     accents: Array.isArray(stored.accents) ? stored.accents : null,
     subdivision: SUBDIVISIONS.includes(stored.subdivision) ? stored.subdivision : 1,
@@ -107,7 +107,7 @@
     status: "idle",          // idle | countIn | playing | interrupted
     ctx: null, master: null, buffers: null,
     plan: null, scheduledUntil: 0, sources: new Set(), visual: [],
-    pending: null, queuedBar: null,
+    pending: null, queuedBar: null, nowNote: null,
     worker: null, fallbackTimer: null, lastTick: 0,
     wakeLock: null, runStartPerf: 0, hiddenAt: null, missedAtHide: 0,
     clockRef: null, currentUnit: -1, currentRole: null, currentBar: null, countInBars: 0,
@@ -243,6 +243,7 @@
       eng.visual = [];
       eng.pending = null;
       eng.queuedBar = null;
+      eng.nowNote = null;
       eng.runStartPerf = performance.now();
       eng.lastTick = performance.now();
       eng.clockRef = null;
@@ -256,11 +257,11 @@
     } catch (err) {
       setStatus("idle");
       log(`Start failed: ${err.message}`, "warn");
-      showBanner(`Audio could not start (${err.message}). Check the volume and silent mode, then press Start again.`);
+      showBanner("No sound yet. Check the volume and that the iPad isn't muted, then press Start.");
     }
   }
 
-  function stop(reason, kind = "user") {
+  function stop(reason, cause = "") {
     if (eng.status === "idle" || eng.status === "interrupted") { if (!reason) return; }
     stopTimer();
     for (const src of eng.sources) { try { src.stop(); } catch { /* already stopped */ } }
@@ -268,13 +269,14 @@
     eng.visual = [];
     eng.pending = null;
     eng.queuedBar = null;
+    eng.nowNote = null;
     if (eng.runStartPerf) stats.runSeconds += (performance.now() - eng.runStartPerf) / 1000;
     eng.runStartPerf = 0;
     if (reason) {
       stats.interruptions++;
       setStatus("interrupted");
       showBanner(reason);
-      log(`Stopped: ${reason}`, "warn");
+      log(`Stopped by the system${cause ? ` (${cause})` : ""}: ${reason}`, "warn");
     } else {
       setStatus("idle");
       log("Stop");
@@ -286,7 +288,7 @@
     eng.status = s;
     const pill = $("status-pill");
     pill.dataset.state = s;
-    pill.textContent = { idle: "Ready", countIn: "Count-in", playing: "Running", interrupted: "Interrupted" }[s];
+    pill.textContent = { idle: "Ready", countIn: "Count-in", playing: "Running", interrupted: "Stopped" }[s];
     const btn = $("start");
     const running = s === "playing" || s === "countIn";
     btn.dataset.running = String(running);
@@ -379,7 +381,10 @@
     const st = eng.ctx.state;
     log(`Audio state: ${st}`, st === "running" ? "info" : "warn");
     if ((eng.status === "playing" || eng.status === "countIn") && st !== "running") {
-      stop(`Audio was interrupted (${st}). It will not restart on its own. Press Start when you're ready.`);
+      // Copy from Docs/UX.md › Messages.
+      stop(document.hidden
+        ? "Click stopped while POCKET was in the background. Press Start to play again."
+        : "Click stopped. A call or another app took over the sound. Press Start when you're ready.", `audio ${st}`);
     }
   }
 
@@ -391,9 +396,17 @@
       log(`Page hidden${playing ? " while playing" : ""}`);
     } else {
       const away = eng.hiddenAt ? ((performance.now() - eng.hiddenAt) / 1000).toFixed(1) : "?";
+      eng.hiddenAt = null;
+      // Catch up first so clicks skipped while away are counted, then apply the
+      // UX rule: if time was broken while away, stop and say so (Docs/UX.md).
+      if (playing && eng.ctx && eng.ctx.state === "running") schedule();
       const missed = stats.missed - eng.missedAtHide;
       log(`Page visible after ${away} s; ${missed} clicks missed while away; audio ${eng.ctx ? eng.ctx.state : "not started"}`, missed ? "warn" : "info");
-      eng.hiddenAt = null;
+      if (playing && eng.ctx && eng.ctx.state !== "running") {
+        stop("Click stopped while POCKET was in the background. Press Start to play again.", "audio stopped in background");
+      } else if (playing && missed > 0) {
+        stop(`Click stopped: POCKET skipped ${missed} click${missed === 1 ? "" : "s"} while in the background. Press Start to play again.`, "clicks skipped in background");
+      }
     }
     updateAwake();
   });
@@ -408,7 +421,7 @@
       const playing = eng.status === "playing" || eng.status === "countIn";
       log(`Audio devices changed${playing ? " while playing" : ""}; output latency now ${ms(eng.ctx && eng.ctx.outputLatency)}`, "warn");
       if (playing && settings.routeStop) {
-        stop("The audio output changed. Playback stopped so it doesn't continue on the wrong device. Press Start to continue.");
+        stop("Click stopped because the sound output changed. Check where it will play, then press Start.", "output changed");
       }
     });
   }
@@ -523,7 +536,14 @@
         eng.currentRole = latest.role;
         eng.currentBar = latest.bar;
         if (latest.role === "music" && eng.status === "countIn") setStatus("playing");
-        if (eng.queuedBar !== null && latest.bar >= eng.queuedBar) { eng.queuedBar = null; renderTempoNote(); }
+        if (eng.queuedBar !== null && latest.bar >= eng.queuedBar) {
+          eng.nowNote = { text: `Now ${fmtBpm(settings.bpm)} BPM`, untilBar: latest.bar + 1 };
+          eng.queuedBar = null;
+          renderTempoNote();
+        } else if (eng.nowNote && latest.bar >= eng.nowNote.untilBar) {
+          eng.nowNote = null;
+          renderTempoNote();
+        }
         renderBeats();
         renderActiveBeat();
       }
@@ -560,7 +580,8 @@
     note.classList.toggle("error", !!error);
     if (error) { note.textContent = error; return; }
     if (eng.pending) note.textContent = `Next bar: ${fmtBpm(eng.pending.tempo.bpm)} BPM`;
-    else if (eng.queuedBar !== null) note.textContent = `Changes at bar ${eng.queuedBar + 1}`;
+    else if (eng.queuedBar !== null) note.textContent = `Next bar: ${fmtBpm(settings.bpm)} BPM`;
+    else if (eng.nowNote) note.textContent = eng.nowNote.text;
     else note.textContent = "";
   }
 
@@ -756,7 +777,9 @@
       const avg = (taps[taps.length - 1] - taps[0]) / (taps.length - 1);
       setBpm(Math.round(60000 / avg));
     } else {
-      renderTempoNote("Keep tapping…");
+      const note = $("tempo-note");
+      note.classList.remove("error");
+      note.textContent = "Tap again";
     }
   });
 
