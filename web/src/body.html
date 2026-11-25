@@ -33,6 +33,8 @@
       <fieldset class="field"><legend>Meter</legend><div class="chips" id="meter-chips"></div></fieldset>
       <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="sub-chips"></div></fieldset>
       <fieldset class="field"><legend>Count-in</legend><div class="chips" id="countin-chips"></div></fieldset>
+      <fieldset class="field" id="countin-bars"><legend>Count-in length</legend><div class="chips" id="countin-bars-chips"></div></fieldset>
+      <fieldset class="field"><legend>Tempo changes land on</legend><div class="chips" id="tempo-change-chips"></div></fieldset>
       <fieldset class="field"><legend>Sound</legend><div class="chips" id="sound-chips"></div></fieldset>
       <div class="field">
         <span class="label" id="volume-label">Master volume</span>
@@ -72,6 +74,7 @@
   <footer class="transport">
     <div class="transport-inner">
       <button type="button" class="start" id="start" data-running="false">Start</button>
+      <button type="button" class="secondary" id="pause" hidden>Pause</button>
       <div class="position" aria-live="off"><strong id="pos-bar">Bar –</strong><span id="pos-time">00:00</span></div>
     </div>
   </footer>

@@ -14,7 +14,8 @@ Status: ☐ todo · ◐ in progress · ☑ done. Milestones from plan §09.
 - ☑ Quick Click UX spec: states, journeys J1–J6, message copy (`Docs/UX.md`)
 - ☑ Web test uses the spec's copy, stops on return when time broke in the
   background, "Tap again" / "Next bar" / "Now" tempo feedback, 120 BPM default
-- ☐ **Owner:** answer O-1 to O-4 in `Docs/UX.md`
+- ☑ Owner decisions O-1 to O-4: next-beat tempo changes (with Next bar setting),
+  Pause/Resume, count-in modes; built in the web test and both timing cores
 - ☐ Beat row previews the next pattern instead of switching early
 - ☐ Hold ±1 to repeat
 - ☐ Non-blocking "timing hiccup" notice

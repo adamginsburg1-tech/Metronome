@@ -29,7 +29,8 @@ Tempo (bpm, beatUnit) ────┘     (role, bars?)          (immutable)    
 1. Every event frame is within ½ frame of its exact time.
 2. No drift with duration (checked for 60 minutes).
 3. Adjacent windows `[a,b)`, `[b,c)` return each event once, in order.
-4. `changing(fromBar:)` leaves every earlier event's frame unchanged.
+4. `changing(at:)` (bar line or beat) leaves every earlier event's frame unchanged.
+   Segments may start mid-bar after a tempo change; a pattern only changes at grid 0.
 5. Muted units do not sound but keep their place on the grid.
 6. Count-in uses the music tempo, sounds every unit, no subdivisions.
 

@@ -122,3 +122,44 @@ test("invalid plans are rejected", () => {
   assert.throws(() => new T.PlaybackPlan([T.makeSegment({ pattern, tempo }), T.makeSegment({ pattern, tempo, bars: 1 })]));
   assert.throws(() => new T.PlaybackPlan([T.makeSegment({ pattern, tempo, bars: 0 })]));
 });
+
+test("beat grids follow the tempo's beat unit", () => {
+  const four = T.makePattern({ meter: T.makeMeter(4, 4), subdivision: 2 });
+  assert.deepEqual(T.beatGrids(four, 1 / 4), [0, 2, 4, 6]);
+  const six = T.makePattern({ meter: T.makeMeter(6, 8) });
+  assert.deepEqual(T.beatGrids(six, 3 / 8), [0, 3]);
+  const seven = T.makePattern({ meter: T.makeMeter(7, 8) });
+  assert.deepEqual(T.beatGrids(seven, 1 / 8), [0, 1, 2, 3, 4, 5, 6]);
+});
+
+test("tempo change on the next beat lands mid-bar and keeps the bar counting", () => {
+  const plan = quarterPlan(120, { pattern: { subdivision: 2 } });
+  // At t = 0.3 s the next beat is beat 2 of bar 0 (t = 0.5, grid 2).
+  const pos = plan.firstBoundaryAtOrAfter(0.3, "beat");
+  assert.deepEqual(pos, { bar: 0, grid: 2 });
+  const changed = plan.changingTempoAt(T.makeTempo(60), pos);
+  assert.deepEqual(changed.eventsIn(0, 0.5), plan.eventsIn(0, 0.5));
+  const after = changed.eventsIn(0.5, 9);
+  // From beat 2: eighths at 60 BPM = 0.5 s apart.
+  after.forEach((e, k) => assert.ok(Math.abs(e.time - (0.5 + k * 0.5)) < 1e-9));
+  assert.deepEqual(after.slice(0, 5).map((e) => [e.bar, e.unit, e.sub]), [[0, 1, 0], [0, 1, 1], [0, 2, 0], [0, 2, 1], [0, 3, 0]]);
+  assert.equal(after[6].bar, 1);
+  assert.equal(after[6].level, T.LEVEL.downbeat);
+  assert.equal(changed.startTimeOfBar(1), 3.5);
+});
+
+test("next beat in 6/8 is the next dotted quarter", () => {
+  const meter = T.makeMeter(6, 8);
+  const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter }), tempo: T.makeTempo(60, meter.defaultBeatUnit) });
+  assert.deepEqual(plan.firstBoundaryAtOrAfter(0.1, "beat"), { bar: 0, grid: 3 });
+  assert.deepEqual(plan.firstBoundaryAtOrAfter(1.1, "beat"), { bar: 1, grid: 0 });
+});
+
+test("pattern change after a mid-bar tempo change still lands on the bar line", () => {
+  const plan = quarterPlan(120).changingTempoAt(T.makeTempo(100), { bar: 0, grid: 1 });
+  const changed = plan.changingPattern(T.makePattern({ meter: T.makeMeter(3, 4) }), 1);
+  const bar1 = changed.startTimeOfBar(1);
+  assert.ok(Math.abs(bar1 - (0.5 + 3 * 0.6)) < 1e-9);
+  assert.deepEqual(changed.eventsIn(bar1, bar1 + 1.8 - 1e-9).map((e) => e.level), [4, 2, 2]);
+  assert.throws(() => plan.changingAt({ bar: 0, grid: 2 }, (s) => ({ ...s, pattern: T.makePattern({ meter: T.makeMeter(3, 4) }) })));
+});

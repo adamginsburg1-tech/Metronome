@@ -4,20 +4,47 @@ public enum SegmentRole: String, Sendable, Hashable {
     case music
 }
 
-/// A run of bars with one pattern and one constant tempo.
-/// `bars == nil` means "until stopped" and is only allowed for the last segment.
+/// A run of grid events with one pattern and one constant tempo.
+///
+/// Give a length in whole `bars` or in grid `events`; leave both nil for
+/// "until stopped" (last segment only). A segment may start mid-bar (after a
+/// tempo change on a beat) and then continues the bar it starts in. A
+/// *pattern* may only change on a bar line.
 public struct PlaybackSegment: Sendable, Hashable {
     public var pattern: ClickPattern
     public var tempo: Tempo
     public var bars: Int?
+    public var events: Int?
     public var role: SegmentRole
 
-    public init(pattern: ClickPattern, tempo: Tempo, bars: Int? = nil, role: SegmentRole = .music) {
+    public init(pattern: ClickPattern, tempo: Tempo, bars: Int? = nil, events: Int? = nil, role: SegmentRole = .music) {
         self.pattern = pattern
         self.tempo = tempo
         self.bars = bars
+        self.events = events
         self.role = role
     }
+}
+
+/// A grid position: bar number plus grid step within the bar (0 = downbeat).
+public struct BarPosition: Sendable, Hashable, CustomStringConvertible {
+    public var bar: Int
+    public var grid: Int
+
+    public init(bar: Int, grid: Int = 0) {
+        self.bar = bar
+        self.grid = grid
+    }
+
+    public var description: String { "bar \(bar) step \(grid)" }
+}
+
+/// Where a change made while playing takes effect.
+public enum ChangeBoundary: String, Sendable, Hashable {
+    /// Next beat of the tempo's beat unit (default for tempo changes).
+    case beat
+    /// Next bar line (always used for meter, subdivision and accent changes).
+    case bar
 }
 
 /// One scheduled click.
@@ -30,12 +57,26 @@ public struct ClickEvent: Sendable, Hashable, CustomStringConvertible {
     public let unit: Int
     /// Subdivision within the unit (0 = on the unit).
     public let subdivision: Int
+    /// Grid step within the bar (`unit × subdivisions + subdivision`).
+    public let grid: Int
     public let level: AccentLevel
     public let role: SegmentRole
     public let segmentIndex: Int
 
+    public var position: BarPosition { BarPosition(bar: bar, grid: grid) }
+
     public var description: String {
         "frame \(frame) bar \(bar) unit \(unit).\(subdivision) \(level) \(role)"
+    }
+}
+
+extension ClickPattern {
+    /// Grid steps in a bar that fall on a beat of `beatUnit` (always includes 0).
+    public func beatGrids(beatUnit: NoteValue) -> [Int] {
+        (0..<meter.numerator).compactMap { unit in
+            let ratio = meter.unit.wholeNotes * Rational(unit) / beatUnit.wholeNotes
+            return ratio.isInteger ? unit * subdivision : nil
+        }
     }
 }
 
@@ -48,8 +89,8 @@ public struct ClickEvent: Sendable, Hashable, CustomStringConvertible {
 /// bounded lookahead window with `events(in:)`; consecutive windows return
 /// each event exactly once.
 ///
-/// Tempo or pattern changes produce a *new* plan with `changing(fromBar:_:)`,
-/// which keeps every event before that bar identical.
+/// Changes made while playing produce a *new* plan with `changing(at:_:)`,
+/// which keeps every event before that position identical.
 public struct PlaybackPlan: Sendable {
     /// Fraction-of-a-frame resolution kept at segment boundaries
     /// (2⁻²⁰ frame ≈ 20 picoseconds at 48 kHz). Bounding it keeps the
@@ -58,6 +99,7 @@ public struct PlaybackPlan: Sendable {
 
     public let sampleRate: Int
     public let startFrame: Int64
+    /// Segments normalized to event counts (`bars` is always nil here).
     public let segments: [PlaybackSegment]
 
     private let resolved: [ResolvedSegment]
@@ -69,35 +111,57 @@ public struct PlaybackPlan: Sendable {
         guard !segments.isEmpty else {
             throw TimingError.invalidPlan("a plan needs at least one segment")
         }
-        for (index, segment) in segments.enumerated() {
-            if let bars = segment.bars, bars <= 0 {
-                throw TimingError.invalidPlan("segment \(index) must have at least one bar")
+
+        var normalized: [PlaybackSegment] = []
+        var pending: [(segment: PlaybackSegment, anchor: TimelinePoint, step: Rational, barIndex: Int, startGrid: Int)] = []
+        var anchor = TimelinePoint(whole: startFrame, fraction: .zero)
+        var grid = 0
+        var barsSoFar = 0
+        var previousPattern: ClickPattern?
+
+        for (index, input) in segments.enumerated() {
+            let perBar = input.pattern.eventsPerBar
+            var events = input.events
+            if events == nil, let bars = input.bars {
+                guard bars > 0 else { throw TimingError.invalidPlan("segment \(index) must have at least one bar") }
+                guard grid == 0 else { throw TimingError.invalidPlan("segment \(index) gives whole bars but starts mid-bar") }
+                events = bars * perBar
             }
-            if segment.bars == nil && index != segments.count - 1 {
+            if let events, events <= 0 {
+                throw TimingError.invalidPlan("segment \(index) must have at least one event")
+            }
+            if events == nil && index != segments.count - 1 {
                 throw TimingError.invalidPlan("only the last segment may be open-ended")
             }
-        }
-
-        let countInBars = segments.prefix { $0.role == .countIn }.reduce(0) { $0 + ($1.bars ?? 0) }
-
-        var resolved: [ResolvedSegment] = []
-        var anchor = TimelinePoint(whole: startFrame, fraction: .zero)
-        var firstBar = -countInBars
-        for segment in segments {
-            let step = segment.tempo.framesPerWholeNote(sampleRate: sampleRate) * segment.pattern.stepLength
-            let eventCount = segment.bars.map { Int64($0 * segment.pattern.eventsPerBar) }
-            let item = ResolvedSegment(segment: segment, anchor: anchor, step: step, eventCount: eventCount, firstBar: firstBar)
-            resolved.append(item)
-            if let count = eventCount, let bars = segment.bars {
-                anchor = item.exactPoint(ofEvent: count).quantized(to: PlaybackPlan.anchorResolution)
-                firstBar += bars
+            if grid != 0 && input.pattern != previousPattern {
+                throw TimingError.invalidPlan("segment \(index) changes the pattern mid-bar")
             }
+
+            let segment = PlaybackSegment(pattern: input.pattern, tempo: input.tempo, events: events, role: input.role)
+            normalized.append(segment)
+            let step = input.tempo.framesPerWholeNote(sampleRate: sampleRate) * input.pattern.stepLength
+            pending.append((segment, anchor, step, barsSoFar, grid))
+            if let events {
+                anchor = (anchor + Rational(Int64(events)) * step).quantized(to: PlaybackPlan.anchorResolution)
+                let g = grid + events
+                barsSoFar += g / perBar
+                grid = g % perBar
+            }
+            previousPattern = input.pattern
         }
 
+        // Music starts at bar 0; count-in bars are negative.
+        let countInBars = pending.first { $0.segment.role != .countIn }?.barIndex ?? 0
+        self.resolved = pending.map {
+            ResolvedSegment(
+                segment: $0.segment, anchor: $0.anchor, step: $0.step,
+                eventCount: $0.segment.events.map(Int64.init),
+                firstBar: $0.barIndex - countInBars, startGrid: $0.startGrid
+            )
+        }
         self.sampleRate = sampleRate
         self.startFrame = startFrame
-        self.segments = segments
-        self.resolved = resolved
+        self.segments = normalized
     }
 
     /// Standard metronome: optional count-in bars (units only), then the pattern until stopped.
@@ -134,14 +198,16 @@ public struct PlaybackPlan: Sendable {
             let item = resolved[segmentIndex]
             let pattern = item.segment.pattern
             let perBar = Int64(pattern.eventsPerBar)
-            let gridIndex = Int(k % perBar)
+            let g = Int64(item.startGrid) + k
+            let gridIndex = Int(g % perBar)
             let level = pattern.level(atGridIndex: gridIndex)
             guard level != .muted else { return }
             result.append(ClickEvent(
                 frame: frame,
-                bar: item.firstBar + Int(k / perBar),
+                bar: item.firstBar + Int(g / perBar),
                 unit: gridIndex / pattern.subdivision,
                 subdivision: gridIndex % pattern.subdivision,
+                grid: gridIndex,
                 level: level,
                 role: item.segment.role,
                 segmentIndex: segmentIndex
@@ -150,66 +216,89 @@ public struct PlaybackPlan: Sendable {
         return result
     }
 
-    /// Frame on which `bar` begins, or nil if the bar is outside the plan.
-    public func startFrame(ofBar bar: Int) -> Int64? {
-        guard let index = segmentIndex(containingBar: bar) else { return nil }
-        let item = resolved[index]
-        let k = Int64(bar - item.firstBar) * Int64(item.segment.pattern.eventsPerBar)
-        return item.exactPoint(ofEvent: k).roundedHalfUp
+    /// Frame of a grid position, or nil if it is outside the plan.
+    public func startFrame(of position: BarPosition) -> Int64? {
+        guard let (index, k) = locate(position) else { return nil }
+        return resolved[index].frame(ofEvent: k)
     }
 
-    /// The first bar that starts at or after `frame` (use it to queue a change
-    /// "on the next bar"). Nil if no bar starts there.
-    public func firstBar(startingAtOrAfter frame: Int64) -> Int? {
+    /// Frame on which `bar` begins, or nil if the bar is outside the plan.
+    public func startFrame(ofBar bar: Int) -> Int64? {
+        startFrame(of: BarPosition(bar: bar))
+    }
+
+    /// The first beat or bar line at or after `frame` — where a change queued
+    /// now should land. Beats follow each segment's tempo beat unit.
+    public func firstBoundary(atOrAfter frame: Int64, unit: ChangeBoundary) -> BarPosition? {
         for item in resolved {
-            let barStep = item.step * Rational(item.segment.pattern.eventsPerBar)
-            let bars = item.segment.bars.map(Int64.init)
-            var b = max(0, Int64(((Double(frame) - item.anchor.doubleValue) / barStep.doubleValue).rounded(.down)) - 1)
-            if let bars, b >= bars { continue }
-            func start(_ bar: Int64) -> Int64 { item.exactPoint(ofEvent: bar * Int64(item.segment.pattern.eventsPerBar)).roundedHalfUp }
-            while b > 0 && start(b - 1) >= frame { b -= 1 }
-            while start(b) < frame {
-                b += 1
-                if let bars, b >= bars { break }
+            let pattern = item.segment.pattern
+            let perBar = Int64(pattern.eventsPerBar)
+            let allowed = Set(unit == .beat ? pattern.beatGrids(beatUnit: item.segment.tempo.beatUnit) : [0])
+            var k = item.firstEvent(atOrAfter: frame)
+            while item.eventCount.map({ k < $0 }) ?? true {
+                let g = Int64(item.startGrid) + k
+                let gridIndex = Int(g % perBar)
+                if allowed.contains(gridIndex) {
+                    return BarPosition(bar: item.firstBar + Int(g / perBar), grid: gridIndex)
+                }
+                k += 1
             }
-            if let bars, b >= bars { continue }
-            return item.firstBar + Int(b)
         }
         return nil
     }
 
-    /// A new plan identical up to (not including) `bar`, with `transform`
-    /// applied to every segment from that bar on. Events before `bar` keep
-    /// exactly the same frames, so the switch is seamless.
-    public func changing(fromBar bar: Int, _ transform: (inout PlaybackSegment) throws -> Void) throws -> PlaybackPlan {
-        guard let index = segmentIndex(containingBar: bar) else {
-            throw TimingError.invalidPlan("bar \(bar) is outside the plan")
+    /// The first bar that starts at or after `frame`.
+    public func firstBar(startingAtOrAfter frame: Int64) -> Int? {
+        firstBoundary(atOrAfter: frame, unit: .bar)?.bar
+    }
+
+    /// A new plan identical up to (not including) `position`, with `transform`
+    /// applied to every segment from there on. Earlier events keep exactly the
+    /// same frames, so the switch is seamless. A transform that changes the
+    /// pattern must use a bar line (grid 0).
+    public func changing(at position: BarPosition, _ transform: (inout PlaybackSegment) throws -> Void) throws -> PlaybackPlan {
+        guard let (index, k) = locate(position) else {
+            throw TimingError.invalidPlan("\(position) is outside the plan")
         }
-        let item = resolved[index]
-        let offset = bar - item.firstBar
         var newSegments = Array(segments[..<index])
         var tail = Array(segments[index...])
-        if offset > 0 {
+        if k > 0 {
             var head = tail[0]
-            head.bars = offset
+            head.events = Int(k)
             newSegments.append(head)
-            if let bars = tail[0].bars { tail[0].bars = bars - offset }
+            if let events = tail[0].events { tail[0].events = events - Int(k) }
         }
-        for i in tail.indices { try transform(&tail[i]) }
+        for i in tail.indices {
+            try transform(&tail[i])
+            tail[i].bars = nil
+        }
         return try PlaybackPlan(sampleRate: sampleRate, segments: newSegments + tail, startFrame: startFrame)
     }
 
-    /// Convenience: switch tempo starting at `bar`.
+    /// Same as `changing(at:)` on a bar line.
+    public func changing(fromBar bar: Int, _ transform: (inout PlaybackSegment) throws -> Void) throws -> PlaybackPlan {
+        try changing(at: BarPosition(bar: bar), transform)
+    }
+
+    /// Switch tempo starting at `position` (a beat or a bar line).
+    public func changingTempo(to tempo: Tempo, at position: BarPosition) throws -> PlaybackPlan {
+        try changing(at: position) { $0.tempo = tempo }
+    }
+
+    /// Switch tempo starting at `bar`.
     public func changingTempo(to tempo: Tempo, fromBar bar: Int) throws -> PlaybackPlan {
-        try changing(fromBar: bar) { $0.tempo = tempo }
+        try changingTempo(to: tempo, at: BarPosition(bar: bar))
     }
 
     // MARK: Internals
 
-    private func segmentIndex(containingBar bar: Int) -> Int? {
-        for (index, item) in resolved.enumerated() where bar >= item.firstBar {
-            if let bars = item.segment.bars, bar >= item.firstBar + bars { continue }
-            return index
+    private func locate(_ position: BarPosition) -> (Int, Int64)? {
+        for (index, item) in resolved.enumerated() {
+            let perBar = Int64(item.segment.pattern.eventsPerBar)
+            let k = Int64(position.bar - item.firstBar) * perBar + Int64(position.grid - item.startGrid)
+            if k >= 0, item.eventCount.map({ k < $0 }) ?? true {
+                return (index, k)
+            }
         }
         return nil
     }
@@ -221,10 +310,7 @@ public struct PlaybackPlan: Sendable {
             if let count = item.eventCount, item.frame(ofEvent: count) <= frames.lowerBound { continue }
             if item.frame(ofEvent: 0) >= frames.upperBound { break }
 
-            var k = item.estimatedFirstEvent(atOrAfter: frames.lowerBound)
-            while k > 0 && item.frame(ofEvent: k - 1) >= frames.lowerBound { k -= 1 }
-            while item.frame(ofEvent: k) < frames.lowerBound { k += 1 }
-
+            var k = item.firstEvent(atOrAfter: frames.lowerBound)
             while item.eventCount.map({ k < $0 }) ?? true {
                 let frame = item.frame(ofEvent: k)
                 if frame >= frames.upperBound { return }
@@ -267,6 +353,8 @@ private struct ResolvedSegment: Sendable {
     let step: Rational
     let eventCount: Int64?
     let firstBar: Int
+    /// Grid step within its first bar at which this segment starts.
+    let startGrid: Int
 
     func exactPoint(ofEvent k: Int64) -> TimelinePoint {
         anchor + Rational(k) * step
@@ -276,12 +364,13 @@ private struct ResolvedSegment: Sendable {
         exactPoint(ofEvent: k).roundedHalfUp
     }
 
-    /// Floating-point guess, corrected exactly by the caller.
-    func estimatedFirstEvent(atOrAfter frame: Int64) -> Int64 {
-        let guess = ((Double(frame) - anchor.doubleValue) / step.doubleValue).rounded(.down)
-        guard guess.isFinite, guess > 1 else { return 0 }
-        let k = Int64(min(guess, 9.0e15)) - 1
-        if let count = eventCount { return min(k, count) }
+    /// First event index whose frame is >= `frame` (may equal `eventCount`).
+    func firstEvent(atOrAfter target: Int64) -> Int64 {
+        let guess = ((Double(target) - anchor.doubleValue) / step.doubleValue).rounded(.down)
+        var k: Int64 = (guess.isFinite && guess > 1) ? Int64(min(guess, 9.0e15)) - 1 : 0
+        if let count = eventCount { k = min(k, count) }
+        while k > 0 && frame(ofEvent: k - 1) >= target { k -= 1 }
+        while (eventCount.map { k < $0 } ?? true) && frame(ofEvent: k) < target { k += 1 }
         return k
     }
 }

@@ -7,7 +7,7 @@ are targets until evidence appears in this file.
 
 - **Environment:** Swift 6.0 (`swift:6.0-noble` Docker image), Ubuntu 24.04 x86_64, debug build
 - **Command:** `swift test`
-- **Result:** 28 tests, 0 failures (≈1.7 s)
+- **Result:** 28 tests, 0 failures (≈1.7 s). *Update below: 33 tests after D-013.*
 
 | Area | What was checked | Result |
 |---|---|---|
@@ -63,3 +63,19 @@ playing show "Next bar: 130 BPM", only 130 is applied at bar 2, then "Now 130 BP
 a simulated background visit that starved the scheduler stopped playback on
 return with "Click stopped: POCKET skipped 1 click while in the background…" and
 status "Stopped"; no console errors.
+
+## 2026-11-25 · Owner decisions O-1 to O-4 (D-013 to D-015)
+
+- **Swift core** (`swift:6.0-noble`): 33 tests, 0 failures. New `BeatChangeTests`:
+  beat grids per beat unit (4/4, 6/8 dotted quarter, 7/8), tempo change on the
+  next beat lands mid-bar with earlier events identical and bar numbering
+  intact, 6/8 next beat is the next dotted quarter, pattern change after a
+  mid-bar tempo change lands on the bar line (mid-bar pattern change rejected),
+  100 successive next-beat changes leave earlier events untouched.
+- **JS core:** 15 tests, 0 failures (same cases).
+- **Web test in headless Chromium:** defaults Every start / 1 bar / Next beat;
+  +5 while playing shows "Next beat: 125 BPM" then "Now 125 BPM"; Pause shows
+  Paused / Resume / Stop with bar held; Resume counts in and continues at bar 3;
+  Stop from paused returns to Ready; "First start only" skips the count-in on the
+  next Start; "Next bar" mode shows "Next bar: 126 BPM"; no console errors; no
+  overflow at 390 px.

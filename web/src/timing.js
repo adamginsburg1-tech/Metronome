@@ -80,31 +80,68 @@
     return Object.freeze({ bpm: rounded, beatUnit, secondsPerWhole: 60 / (rounded * beatUnit) });
   }
 
-  function makeSegment({ pattern, tempo, bars = null, role = "music" }) {
-    return Object.freeze({ pattern, tempo, bars, role });
+  /**
+   * A run of events with one pattern and one tempo. Give `bars` (whole bars) or
+   * `events` (grid steps); leave both null for "until stopped" (last segment only).
+   * A segment may start mid-bar (after a tempo change on a beat); it then
+   * continues the bar it starts in. A *pattern* may only change on a bar line.
+   */
+  function makeSegment({ pattern, tempo, bars = null, events = null, role = "music" }) {
+    return Object.freeze({ pattern, tempo, bars, events, role });
+  }
+
+  /** Grid indices in a bar that fall on a beat of `beatUnit` (always includes 0). */
+  function beatGrids(pattern, beatUnit) {
+    const grids = [];
+    for (let u = 0; u < pattern.meter.num; u++) {
+      const ratio = (u * pattern.meter.unitWhole) / beatUnit;
+      if (Math.abs(ratio - Math.round(ratio)) < 1e-9) grids.push(u * pattern.subdivision);
+    }
+    return grids;
   }
 
   class PlaybackPlan {
-    /** @param segments list of {pattern, tempo, bars|null, role}; @param startTime seconds */
+    /** @param segments list of segments (see makeSegment); @param startTime seconds */
     constructor(segments, startTime = 0) {
       if (!segments.length) throw new TimingError("a plan needs at least one segment");
-      segments.forEach((s, i) => {
-        if (s.bars !== null && (!Number.isInteger(s.bars) || s.bars < 1)) throw new TimingError(`segment ${i} must have at least one bar`);
-        if (s.bars === null && i !== segments.length - 1) throw new TimingError("only the last segment may be open-ended");
-      });
-      let countInBars = 0;
-      for (const s of segments) { if (s.role !== "countIn") break; countInBars += s.bars || 0; }
-
+      // Normalize to event counts, then resolve exact anchors and bar positions.
+      const normalized = [];
       const resolved = [];
       let anchor = startTime;
-      let firstBar = -countInBars;
-      for (const s of segments) {
+      let grid = 0;
+      let barsSoFar = 0;
+      let prevPattern = null;
+      segments.forEach((s, i) => {
+        const per = s.pattern.eventsPerBar;
+        let events = s.events;
+        if (events === null && s.bars !== null) {
+          if (!Number.isInteger(s.bars) || s.bars < 1) throw new TimingError(`segment ${i} must have at least one bar`);
+          if (grid !== 0) throw new TimingError(`segment ${i} gives whole bars but starts mid-bar`);
+          events = s.bars * per;
+        }
+        if (events !== null && (!Number.isInteger(events) || events < 1)) throw new TimingError(`segment ${i} must have at least one event`);
+        if (events === null && i !== segments.length - 1) throw new TimingError("only the last segment may be open-ended");
+        if (grid !== 0 && s.pattern !== prevPattern) throw new TimingError(`segment ${i} changes the pattern mid-bar`);
+        const seg = makeSegment({ pattern: s.pattern, tempo: s.tempo, events, role: s.role });
+        normalized.push(seg);
         const step = s.tempo.secondsPerWhole * s.pattern.stepWhole;
-        const count = s.bars === null ? Infinity : s.bars * s.pattern.eventsPerBar;
-        resolved.push(Object.freeze({ segment: s, anchor, step, count, firstBar }));
-        if (s.bars !== null) { anchor = anchor + count * step; firstBar += s.bars; }
+        const count = events === null ? Infinity : events;
+        resolved.push({ segment: seg, anchor, step, count, barIndex: barsSoFar, startGrid: grid });
+        if (events !== null) {
+          anchor = anchor + count * step;
+          const g = grid + count;
+          barsSoFar += Math.floor(g / per);
+          grid = g % per;
+        }
+        prevPattern = s.pattern;
+      });
+      // Music starts at bar 0; count-in bars are negative.
+      let countInBars = 0;
+      for (const r of resolved) {
+        if (r.segment.role !== "countIn") { countInBars = r.barIndex; break; }
       }
-      this.segments = Object.freeze(segments.slice());
+      for (const r of resolved) { r.firstBar = r.barIndex - countInBars; Object.freeze(r); }
+      this.segments = Object.freeze(normalized);
       this.startTime = startTime;
       this._r = Object.freeze(resolved);
       Object.freeze(this);
@@ -131,23 +168,19 @@
       if (!(t1 > t0)) return out;
       for (let i = 0; i < this._r.length; i++) {
         const r = this._r[i];
-        const time = (k) => r.anchor + k * r.step;
-        if (r.count !== Infinity && time(r.count) <= t0) continue;
-        if (time(0) >= t1) break;
-        let k = Math.max(0, Math.ceil((t0 - r.anchor) / r.step) - 1);
-        if (r.count !== Infinity) k = Math.min(k, r.count);
-        while (k > 0 && time(k - 1) >= t0) k--;
-        while (time(k) < t0) k++;
+        if (r.count !== Infinity && r.anchor + r.count * r.step <= t0) continue;
+        if (r.anchor >= t1) break;
         const p = r.segment.pattern;
-        for (; k < r.count; k++) {
-          const t = time(k);
+        for (let k = firstK(r, t0); k < r.count; k++) {
+          const t = r.anchor + k * r.step;
           if (t >= t1) return out;
-          const g = k % p.eventsPerBar;
-          const level = levelAt(p, g);
+          const g = r.startGrid + k;
+          const gi = g % p.eventsPerBar;
+          const level = levelAt(p, gi);
           if (level === LEVEL.muted) continue;
           out.push({
-            time: t, bar: r.firstBar + Math.floor(k / p.eventsPerBar),
-            unit: Math.floor(g / p.subdivision), sub: g % p.subdivision,
+            time: t, bar: r.firstBar + Math.floor(g / p.eventsPerBar),
+            unit: Math.floor(gi / p.subdivision), sub: gi % p.subdivision, grid: gi,
             level, role: r.segment.role, segment: i,
           });
         }
@@ -155,62 +188,78 @@
       return out;
     }
 
-    startTimeOfBar(bar) {
-      const i = this._segmentIndexOfBar(bar);
-      if (i < 0) return null;
-      const r = this._r[i];
-      return r.anchor + (bar - r.firstBar) * r.segment.pattern.eventsPerBar * r.step;
+    /** Time of a position {bar, grid}; null if outside the plan. */
+    timeOf(pos) {
+      const loc = this._locate(pos);
+      return loc ? this._r[loc.i].anchor + loc.k * this._r[loc.i].step : null;
     }
 
-    /** First bar starting at or after `t` — where a queued change should land. */
-    firstBarAtOrAfter(t) {
+    startTimeOfBar(bar) { return this.timeOf({ bar, grid: 0 }); }
+
+    /**
+     * First boundary at or after `t`. `unit` is "bar" (downbeats) or "beat"
+     * (beats of each segment's tempo beat unit). Returns {bar, grid} or null.
+     */
+    firstBoundaryAtOrAfter(t, unit = "bar") {
       for (const r of this._r) {
-        const perBar = r.segment.pattern.eventsPerBar;
-        const start = (b) => r.anchor + b * perBar * r.step;
-        const bars = r.segment.bars === null ? Infinity : r.segment.bars;
-        let b = Math.max(0, Math.ceil((t - r.anchor) / (perBar * r.step)) - 1);
-        if (b >= bars) continue;
-        while (b > 0 && start(b - 1) >= t) b--;
-        while (b < bars && start(b) < t) b++;
-        if (b >= bars) continue;
-        return r.firstBar + b;
+        const p = r.segment.pattern;
+        const per = p.eventsPerBar;
+        const ok = new Set(unit === "beat" ? beatGrids(p, r.segment.tempo.beatUnit) : [0]);
+        for (let k = firstK(r, t); k < r.count; k++) {
+          const g = r.startGrid + k;
+          if (ok.has(g % per)) return { bar: r.firstBar + Math.floor(g / per), grid: g % per };
+        }
       }
       return null;
     }
 
-    /** New plan identical before `bar`; `transform(segment) -> segment` applied from `bar` on. */
-    changing(fromBar, transform) {
-      const i = this._segmentIndexOfBar(fromBar);
-      if (i < 0) throw new TimingError(`bar ${fromBar} is outside the plan`);
-      const r = this._r[i];
-      const offset = fromBar - r.firstBar;
-      const head = this.segments.slice(0, i);
-      const tail = this.segments.slice(i).map((s) => ({ ...s }));
-      if (offset > 0) {
-        head.push(makeSegment({ ...tail[0], bars: offset }));
-        if (tail[0].bars !== null) tail[0].bars -= offset;
-      }
-      return new PlaybackPlan(head.concat(tail.map((s) => makeSegment(transform(s)))), this.startTime);
+    firstBarAtOrAfter(t) {
+      const pos = this.firstBoundaryAtOrAfter(t, "bar");
+      return pos ? pos.bar : null;
     }
 
-    changingTempo(tempo, fromBar) {
-      return this.changing(fromBar, (s) => ({ ...s, tempo }));
+    /** New plan identical before `pos`; `transform(segment) -> segment` applied from there on. */
+    changingAt(pos, transform) {
+      const loc = this._locate(pos);
+      if (!loc) throw new TimingError(`bar ${pos.bar} grid ${pos.grid || 0} is outside the plan`);
+      const head = this.segments.slice(0, loc.i);
+      const tail = this.segments.slice(loc.i).map((s) => ({ ...s }));
+      if (loc.k > 0) {
+        head.push(makeSegment({ ...tail[0], events: loc.k }));
+        if (tail[0].events !== null) tail[0].events -= loc.k;
+      }
+      return new PlaybackPlan(head.concat(tail.map((s) => makeSegment({ ...transform(s), bars: null }))), this.startTime);
     }
+
+    changing(fromBar, transform) { return this.changingAt({ bar: fromBar, grid: 0 }, transform); }
+
+    changingTempo(tempo, fromBar) { return this.changingTempoAt(tempo, { bar: fromBar, grid: 0 }); }
+
+    changingTempoAt(tempo, pos) { return this.changingAt(pos, (s) => ({ ...s, tempo })); }
 
     changingPattern(pattern, fromBar) {
       return this.changing(fromBar, (s) => (s.role === "music" ? { ...s, pattern } : s));
     }
 
-    _segmentIndexOfBar(bar) {
+    _locate({ bar, grid = 0 }) {
       for (let i = 0; i < this._r.length; i++) {
         const r = this._r[i];
-        if (bar < r.firstBar) continue;
-        if (r.segment.bars !== null && bar >= r.firstBar + r.segment.bars) continue;
-        return i;
+        const k = (bar - r.firstBar) * r.segment.pattern.eventsPerBar + grid - r.startGrid;
+        if (k >= 0 && k < r.count) return { i, k };
       }
-      return -1;
+      return null;
     }
   }
 
-  return { LEVEL, LEVEL_NAMES, TEMPO_MIN, TEMPO_MAX, TimingError, makeMeter, defaultAccents, makePattern, levelAt, makeTempo, makeSegment, PlaybackPlan };
+  /** First event index in `r` whose time is >= t (may equal r.count). */
+  function firstK(r, t) {
+    const time = (k) => r.anchor + k * r.step;
+    let k = Math.max(0, Math.ceil((t - r.anchor) / r.step) - 1);
+    if (r.count !== Infinity) k = Math.min(k, r.count);
+    while (k > 0 && time(k - 1) >= t) k--;
+    while (k < r.count && time(k) < t) k++;
+    return k;
+  }
+
+  return { LEVEL, LEVEL_NAMES, TEMPO_MIN, TEMPO_MAX, TimingError, makeMeter, defaultAccents, makePattern, levelAt, makeTempo, makeSegment, beatGrids, PlaybackPlan };
 });

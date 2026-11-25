@@ -5,7 +5,7 @@ content is platform-neutral: it applies to the web build and a native build
 alike. Visual design (colour, type, layout) is out of scope until the platform
 decision (D-008) and the three-concept comparison.
 
-Status: draft v0.1, 2026-11-25. Open questions for the owner are at the end.
+Status: v0.2, 2026-11-25. Owner decisions O-1 to O-4 are recorded at the end.
 
 ## Principles
 
@@ -23,14 +23,15 @@ Status: draft v0.1, 2026-11-25. Open questions for the owner are at the end.
 | State | What you see | Start button | What you can do |
 |---|---|---|---|
 | **Ready** | Tempo, meter, beats; no beat lit | Start | Everything |
-| **Count-in** | "Count-in 1 … 4", beats light in blue, distinct sound | Stop | Stop; change settings (applies when the music starts) |
-| **Playing** | Beat dot lights on each beat; bar number and time | Stop | Change tempo, meter, subdivision, accents, sound, volume |
-| **Change waiting** (while playing) | Note under the tempo: "Next bar: 117 BPM" | Stop | Keep changing; the latest value wins |
+| **Count-in** | "Count-in 1 … 4", beats light in blue, distinct sound | Stop (Pause beside it) | Stop, Pause; change settings |
+| **Playing** | Beat dot lights on each beat; bar number and time | Stop (Pause beside it) | Change tempo, meter, subdivision, accents, sound, volume |
+| **Change waiting** (while playing) | Note under the tempo: "Next beat: 117 BPM" (or "Next bar: …") | Stop | Keep changing; the latest value wins |
+| **Paused** | Status "Paused"; bar number and time held | Resume (Stop beside it) | Resume, Stop, change settings |
 | **Stopped by the system** | Message bar above the tempo; status "Stopped" | Start | Read the message, dismiss it, or press Start |
 | **Can't start** | Message bar; status "Ready" | Start | Fix the cause, press Start again |
 
 Transitions follow the plan's transport contract (§06): Ready → Count-in →
-Playing → Ready. "Stopped by the system" is reached from Count-in or Playing and
+Playing ↔ Paused → Ready. "Stopped by the system" is reached from Count-in or Playing and
 leaves only by Start or Dismiss. A failed start returns to Ready with a reason.
 
 ## Journeys
@@ -56,21 +57,25 @@ leaves only by Start or Dismiss. A failed start returns to Ready with a reason.
 - Target: set an exact tempo and start within 10 seconds (plan §10 usability gate).
 
 ### J3 · Change tempo while playing
+- **Where it lands:** on the **next beat** by default. Settings → "Tempo changes
+  land on" switches to **Next bar**. A beat follows the tempo's beat unit (a
+  dotted quarter in 6/8, an eighth in 7/8).
 - **−5 / −1 / +1 / +5:** the big number updates at once. A note shows
-  "Next bar: 117 BPM" until the change lands, then "Now 117 BPM" for one bar.
-- **Several taps before the bar line** combine into one change; the click never
+  "Next beat: 117 BPM" until the change lands, then "Now 117 BPM" for one bar.
+- **Several taps before the boundary** combine into one change; the click never
   steps through the intermediate tempos.
 - **Hold ±1** to repeat: starts after 400 ms, then 8 steps a second, stops the
   moment your finger lifts or slides off. Each step is a normal tap (no
   acceleration), so it can't run away.
 - **Tap tempo:** two taps set a tempo; it averages up to the last four gaps and
   restarts after a 2-second pause. Taps make no sound. While playing, the result
-  applies at the next bar like any other change. Feedback: "Tap again" after the
-  first tap, then the live value.
-- Where the change lands, bar or beat, is open question O-1.
+  applies at the next beat (or bar) like any other change. Feedback: "Tap again"
+  after the first tap, then the live value.
 
 ### J4 · Change the pattern while playing
-Meter, grouping, subdivision and accents all apply **at the next bar line**.
+Meter, grouping, subdivision and accents always apply **at the next bar line**,
+whatever the tempo setting. If you change tempo and pattern together, both land
+on the bar line.
 
 - The beat row keeps following what you hear until the switch. The new pattern
   shows as a preview with a "Next bar" tag, then takes over on the downbeat.
@@ -79,13 +84,20 @@ Meter, grouping, subdivision and accents all apply **at the next bar line**.
 - Tapping a beat cycles strong → group → normal → silent. A silent beat keeps
   its place in the bar (the clock never pauses).
 
-### J5 · Stop and start again
-- Stop silences at once and cancels anything already scheduled. No trailing click.
-- Settings stay exactly as they were. Start plays again from the count-in.
-- Quick Click has no Pause. Pausing belongs to Practice, where a routine has a
-  position worth keeping (see O-3).
+### J5 · Stop, pause and resume
+- **Stop** silences at once and cancels anything already scheduled. No trailing
+  click. Settings stay as they were; the next Start begins again at bar 1.
+- **Pause** also silences at once, but keeps your place: bar count and elapsed
+  time hold. The main button becomes **Resume**, with **Stop** beside it.
+- **Resume** continues from the next bar number. It counts in only when
+  Count-in is set to "Every start".
+- An interruption while paused changes nothing; nothing starts until you press Resume.
+- Keep screen awake treats Paused like playing.
 
 ### J6 · Count-in
+- **When:** Settings → Count-in: **Every start** (including Resume, default),
+  **First start only** (the first Start after opening POCKET), or **Off**.
+  Length: 1 or 2 bars.
 - Uses the music's tempo, sounds every beat (even beats you've silenced), no
   subdivisions, and a different sound so it's never mistaken for bar 1.
 - The position readout says "Count-in 1 … 4", then "Bar 1".
@@ -131,18 +143,19 @@ output-change setting, message placement, keyboard Start.
 | Gap | Status |
 |---|---|
 | Message copy | Updated to the table above |
+| Next-beat tempo changes with a Next bar setting | Added |
+| Pause / Resume | Added |
+| Count-in: Every start / First start only / Off | Added |
 | Stop on return after the system stopped audio or clicks were skipped in the background | Added |
 | "Tap again" / "Now 117 BPM" feedback | Added |
 | Beat row previews the next pattern instead of switching early | Not yet |
 | Hold ±1 to repeat | Not yet |
 | Non-blocking "timing hiccup" notice | Not yet (counted in diagnostics) |
 
-## Open questions for the owner
+## Owner decisions (2026-11-25)
 
-- **O-1 · Where should a tempo change land: next bar or next beat?** The plan's
-  journey says "next beat"; the engine currently uses the next bar. Next beat feels
-  more immediate when nudging; next bar never splits a bar between two tempos.
-  *Suggestion:* tempo on the next beat, pattern changes on the next bar.
-- **O-2 · First-launch setup.** 120 BPM 4/4 with a 1-bar count-in, or your own usual start?
-- **O-3 · Pause in Quick Click?** Spec says no (Stop only). Is there a case where you'd want it?
-- **O-4 · Count-in on every Start, or only the first after opening?**
+- **O-1 · Tempo changes land on the next beat**, with a setting for next bar.
+  Pattern changes always use the next bar line.
+- **O-2 · First launch:** 120 BPM, 4/4, 1-bar count-in. Fine for now.
+- **O-3 · Quick Click has Pause** (J5).
+- **O-4 · Count-in setting:** Every start / First start only / Off, plus length (J6).

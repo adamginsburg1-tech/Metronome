@@ -47,7 +47,9 @@
     { id: "12/8", num: 12, den: 8 },
   ];
   const SUBDIVISIONS = [1, 2, 3, 4, 5, 6, 7];
-  const COUNT_INS = [0, 1, 2];
+  const COUNT_IN_MODES = [{ id: "every", label: "Every start" }, { id: "first", label: "First start only" }, { id: "off", label: "Off" }];
+  const COUNT_IN_BARS = [1, 2];
+  const TEMPO_CHANGE = [{ id: "beat", label: "Next beat" }, { id: "bar", label: "Next bar" }];
   const SOUNDS = [{ id: "wood", label: "Wood" }, { id: "beep", label: "Beep" }];
   const CYCLE = [L.downbeat, L.group, L.normal, L.muted];
 
@@ -82,7 +84,7 @@
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
-        countIn: settings.countIn, sound: settings.sound, volume: settings.volume,
+        countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, sound: settings.sound, volume: settings.volume,
         awake: settings.awake, routeStop: settings.routeStop, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
@@ -94,7 +96,11 @@
     meterId: METERS.some((m) => m.id === stored.meterId) ? stored.meterId : "4/4",
     accents: Array.isArray(stored.accents) ? stored.accents : null,
     subdivision: SUBDIVISIONS.includes(stored.subdivision) ? stored.subdivision : 1,
-    countIn: COUNT_INS.includes(stored.countIn) ? stored.countIn : 1,
+    // Count-in: when it plays (every start incl. resume / first start after opening / off) and how long.
+    countInMode: COUNT_IN_MODES.some((m) => m.id === stored.countInMode) ? stored.countInMode : stored.countIn === 0 ? "off" : "every",
+    countInBars: COUNT_IN_BARS.includes(stored.countInBars) ? stored.countInBars : COUNT_IN_BARS.includes(stored.countIn) ? stored.countIn : 1,
+    // Where a tempo change lands while playing (Docs/UX.md O-1): next beat by default.
+    tempoChange: TEMPO_CHANGE.some((t) => t.id === stored.tempoChange) ? stored.tempoChange : "beat",
     sound: SOUNDS.some((s) => s.id === stored.sound) ? stored.sound : "wood",
     volume: Number.isFinite(stored.volume) ? stored.volume : 60,
     awake: ["off", "playing", "always"].includes(stored.awake) ? stored.awake : stored.wake === false ? "off" : "always",
@@ -104,10 +110,11 @@
 
   // ---------- engine state ----------
   const eng = {
-    status: "idle",          // idle | countIn | playing | interrupted
+    status: "idle",          // idle | countIn | playing | paused | interrupted
     ctx: null, master: null, buffers: null,
     plan: null, scheduledUntil: 0, sources: new Set(), visual: [],
-    pending: null, queuedBar: null, nowNote: null,
+    pending: null, queued: null, nowNote: null,
+    hasStarted: false, barOffset: 0, elapsedBefore: 0,
     worker: null, fallbackTimer: null, lastTick: 0,
     wakeLock: null, runStartPerf: 0, hiddenAt: null, missedAtHide: 0,
     clockRef: null, currentUnit: -1, currentRole: null, currentBar: null, countInBars: 0,
@@ -228,8 +235,17 @@
   }
 
   // ---------- transport ----------
-  async function start() {
-    if (eng.status === "playing" || eng.status === "countIn") return;
+  const isRunning = () => eng.status === "playing" || eng.status === "countIn";
+
+  /** Count-in bars for this start, per the count-in setting (Docs/UX.md J6). */
+  function countInFor(isResume) {
+    if (settings.countInMode === "off") return 0;
+    if (settings.countInMode === "first" && (isResume || eng.hasStarted)) return 0;
+    return settings.countInBars;
+  }
+
+  async function start(isResume = false) {
+    if (isRunning()) return;
     hideBanner();
     try {
       setAudioSession();
@@ -238,40 +254,62 @@
       if (eng.ctx.state !== "running") throw new Error(`audio is ${eng.ctx.state}`);
       const pattern = currentPattern();
       const tempo = currentTempo();
-      eng.plan = T.PlaybackPlan.click({ pattern, tempo, countInBars: settings.countIn, startTime: eng.ctx.currentTime + START_DELAY });
+      const countIn = countInFor(isResume);
+      eng.plan = T.PlaybackPlan.click({ pattern, tempo, countInBars: countIn, startTime: eng.ctx.currentTime + START_DELAY });
       eng.scheduledUntil = eng.plan.startTime;
       eng.visual = [];
       eng.pending = null;
-      eng.queuedBar = null;
+      eng.queued = null;
       eng.nowNote = null;
+      if (!isResume) { eng.barOffset = 0; eng.elapsedBefore = 0; }
       eng.runStartPerf = performance.now();
       eng.lastTick = performance.now();
       eng.clockRef = null;
-      eng.countInBars = settings.countIn;
+      eng.countInBars = countIn;
       eng.currentBar = null;
+      eng.hasStarted = true;
       stats.starts++;
-      setStatus(settings.countIn > 0 ? "countIn" : "playing");
-      log(`Start: ${fmtBpm(tempo.bpm)} BPM, ${pattern.meter.label}, subdivision ${pattern.subdivision}, count-in ${settings.countIn}`);
+      setStatus(countIn > 0 ? "countIn" : "playing");
+      log(`${isResume ? "Resume" : "Start"}: ${fmtBpm(tempo.bpm)} BPM, ${pattern.meter.label}, subdivision ${pattern.subdivision}, count-in ${countIn}`);
       startTimer();
       schedule();
     } catch (err) {
-      setStatus("idle");
+      setStatus(isResume ? "paused" : "idle");
       log(`Start failed: ${err.message}`, "warn");
       showBanner("No sound yet. Check the volume and that the iPad isn't muted, then press Start.");
     }
   }
 
-  function stop(reason, cause = "") {
-    if (eng.status === "idle" || eng.status === "interrupted") { if (!reason) return; }
+  /** Silence now and forget scheduled clicks; shared by stop and pause. */
+  function silence() {
     stopTimer();
     for (const src of eng.sources) { try { src.stop(); } catch { /* already stopped */ } }
     eng.sources.clear();
     eng.visual = [];
     eng.pending = null;
-    eng.queuedBar = null;
+    eng.queued = null;
     eng.nowNote = null;
-    if (eng.runStartPerf) stats.runSeconds += (performance.now() - eng.runStartPerf) / 1000;
+    if (eng.runStartPerf) {
+      const ran = (performance.now() - eng.runStartPerf) / 1000;
+      stats.runSeconds += ran;
+      eng.elapsedBefore += ran;
+    }
     eng.runStartPerf = 0;
+  }
+
+  function pause() {
+    if (!isRunning()) return;
+    // Resume continues from the next bar number.
+    if (eng.currentBar !== null && eng.currentBar >= 0) eng.barOffset += eng.currentBar + 1;
+    silence();
+    setStatus("paused");
+    log(`Pause at bar ${eng.barOffset}`);
+    renderTempoNote();
+  }
+
+  function stop(reason, cause = "") {
+    if ((eng.status === "idle" || eng.status === "interrupted") && !reason) return;
+    silence();
     if (reason) {
       stats.interruptions++;
       setStatus("interrupted");
@@ -288,12 +326,17 @@
     eng.status = s;
     const pill = $("status-pill");
     pill.dataset.state = s;
-    pill.textContent = { idle: "Ready", countIn: "Count-in", playing: "Running", interrupted: "Stopped" }[s];
-    const btn = $("start");
+    pill.textContent = { idle: "Ready", countIn: "Count-in", playing: "Running", paused: "Paused", interrupted: "Stopped" }[s];
     const running = s === "playing" || s === "countIn";
-    btn.dataset.running = String(running);
-    btn.textContent = running ? "Stop" : "Start";
+    // Primary: Start / Stop / Resume. Secondary: Pause while running, Stop while paused.
+    const primary = $("start");
+    primary.dataset.running = String(running);
+    primary.textContent = running ? "Stop" : s === "paused" ? "Resume" : "Start";
+    const secondary = $("pause");
+    secondary.hidden = !(running || s === "paused");
+    secondary.textContent = s === "paused" ? "Stop" : "Pause";
     if (!running) { eng.currentUnit = -1; renderActiveBeat(); }
+    if (s === "idle" || s === "interrupted") { $("pos-bar").textContent = "Bar –"; }
     updateAwake();
   }
 
@@ -356,24 +399,40 @@
     eng.scheduledUntil = to;
   }
 
-  /** Apply queued tempo/pattern changes from the first bar not yet scheduled. */
+  /**
+   * Apply queued changes to the part of the plan not yet scheduled.
+   * Pattern changes (meter, subdivision, accents) land on the next bar line.
+   * Tempo changes land on the next beat or bar, per settings.tempoChange.
+   */
   function applyPending() {
     if (!eng.pending) return;
-    const bar = eng.plan.firstBarAtOrAfter(eng.scheduledUntil);
-    if (bar === null) return;
     const { tempo, pattern } = eng.pending;
-    eng.plan = eng.plan.changing(bar, (s) => ({ ...s, tempo, pattern: s.role === "music" ? pattern : s.pattern }));
+    let pos;
+    if (pattern) {
+      pos = eng.plan.firstBoundaryAtOrAfter(eng.scheduledUntil, "bar");
+      if (!pos) return;
+      eng.plan = eng.plan.changingAt(pos, (s) => ({ ...s, tempo: tempo || s.tempo, pattern: s.role === "music" ? pattern : s.pattern }));
+    } else {
+      pos = eng.plan.firstBoundaryAtOrAfter(eng.scheduledUntil, settings.tempoChange);
+      if (!pos) return;
+      eng.plan = eng.plan.changingTempoAt(tempo, pos);
+    }
+    eng.queued = { ...pos, label: eng.pending.label, unit: pattern ? "bar" : settings.tempoChange };
     eng.pending = null;
-    eng.queuedBar = bar;
-    log(`Change queued for bar ${bar + 1}: ${fmtBpm(tempo.bpm)} BPM, ${pattern.meter.label}, subdivision ${pattern.subdivision}`);
+    log(`Change queued for bar ${pos.bar + 1}${pos.grid ? `, step ${pos.grid + 1}` : ""}: ${eng.queued.label}`);
     renderTempoNote();
   }
 
-  function queueChange() {
-    if (eng.status === "playing" || eng.status === "countIn") {
-      eng.pending = { tempo: currentTempo(), pattern: currentPattern() };
-      renderTempoNote();
-    }
+  /** kind: "tempo" or "pattern". A pattern change carries the tempo too (meter can change the beat unit). */
+  function queueChange(kind) {
+    if (!isRunning()) return;
+    const prev = eng.pending || {};
+    const pattern = kind === "pattern" ? currentPattern() : prev.pattern;
+    const tempo = currentTempo();
+    const parts = [`${fmtBpm(tempo.bpm)} BPM`];
+    if (pattern) parts.push(pattern.meter.label + (pattern.subdivision > 1 ? ` ÷${pattern.subdivision}` : ""));
+    eng.pending = { tempo, pattern, label: parts.join(", ") };
+    renderTempoNote();
   }
 
   // ---------- system events ----------
@@ -433,7 +492,8 @@
   // unlock the iPad or stop the side button from locking it.
   const awakeState = { method: "off", video: null, wantTap: false, busy: false, again: false };
   function wantAwake() {
-    const running = eng.status === "playing" || eng.status === "countIn";
+    // Paused counts as playing: you're mid-practice.
+    const running = isRunning() || eng.status === "paused";
     return !document.hidden && (settings.awake === "always" || (settings.awake === "playing" && running));
   }
   async function updateAwake() {
@@ -531,25 +591,26 @@
       const t = eng.ctx.currentTime - (eng.ctx.outputLatency || 0);
       let latest = null;
       while (eng.visual.length && eng.visual[0].time <= t) latest = eng.visual.shift();
+      if (latest && eng.queued && (latest.bar > eng.queued.bar || (latest.bar === eng.queued.bar && latest.grid >= eng.queued.grid))) {
+        eng.nowNote = { text: `Now ${eng.queued.label}`, untilBar: latest.bar + 1 };
+        eng.queued = null;
+        renderTempoNote();
+      }
       if (latest && latest.sub === 0) {
         eng.currentUnit = latest.unit;
         eng.currentRole = latest.role;
         eng.currentBar = latest.bar;
         if (latest.role === "music" && eng.status === "countIn") setStatus("playing");
-        if (eng.queuedBar !== null && latest.bar >= eng.queuedBar) {
-          eng.nowNote = { text: `Now ${fmtBpm(settings.bpm)} BPM`, untilBar: latest.bar + 1 };
-          eng.queuedBar = null;
-          renderTempoNote();
-        } else if (eng.nowNote && latest.bar >= eng.nowNote.untilBar) {
+        if (eng.nowNote && latest.bar >= eng.nowNote.untilBar) {
           eng.nowNote = null;
           renderTempoNote();
         }
         renderBeats();
         renderActiveBeat();
       }
-      const elapsed = (performance.now() - eng.runStartPerf) / 1000;
+      const elapsed = eng.elapsedBefore + (performance.now() - eng.runStartPerf) / 1000;
       $("pos-time").textContent = fmtClock(elapsed);
-      $("pos-bar").textContent = eng.currentBar === null ? "Bar –" : eng.currentBar < 0 ? `Count-in ${eng.currentBar + eng.countInBars + 1}` : `Bar ${eng.currentBar + 1}`;
+      $("pos-bar").textContent = eng.currentBar === null ? (eng.barOffset ? `Bar ${eng.barOffset + 1}` : "Bar –") : eng.currentBar < 0 ? `Count-in ${eng.currentBar + eng.countInBars + 1}` : `Bar ${eng.currentBar + eng.barOffset + 1}`;
     }
     requestAnimationFrame(frame);
   }
@@ -579,8 +640,9 @@
     const note = $("tempo-note");
     note.classList.toggle("error", !!error);
     if (error) { note.textContent = error; return; }
-    if (eng.pending) note.textContent = `Next bar: ${fmtBpm(eng.pending.tempo.bpm)} BPM`;
-    else if (eng.queuedBar !== null) note.textContent = `Next bar: ${fmtBpm(settings.bpm)} BPM`;
+    const when = (unit) => (unit === "bar" ? "Next bar" : "Next beat");
+    if (eng.pending) note.textContent = `${when(eng.pending.pattern ? "bar" : settings.tempoChange)}: ${eng.pending.label}`;
+    else if (eng.queued) note.textContent = `${when(eng.queued.unit)}: ${eng.queued.label}`;
     else if (eng.nowNote) note.textContent = eng.nowNote.text;
     else note.textContent = "";
   }
@@ -639,13 +701,16 @@
       if (m.id === settings.meterId) return;
       settings.meterId = m.id;
       settings.accents = null;
-      renderTempo(); renderBeats(); queueChange();
+      renderTempo(); renderBeats(); queueChange("pattern");
     });
     const subNames = { 1: "off", 2: "÷2", 3: "÷3", 4: "÷4", 5: "÷5", 6: "÷6", 7: "÷7" };
     chip("sub-chips", SUBDIVISIONS.map((n) => ({ id: n, label: n === 1 ? "Off" : subNames[n] })), (s) => s.id === settings.subdivision, (s) => {
-      settings.subdivision = s.id; queueChange();
+      settings.subdivision = s.id; queueChange("pattern");
     });
-    chip("countin-chips", COUNT_INS.map((n) => ({ id: n, label: n === 0 ? "None" : `${n} bar${n > 1 ? "s" : ""}` })), (c) => c.id === settings.countIn, (c) => { settings.countIn = c.id; });
+    chip("countin-chips", COUNT_IN_MODES, (c) => c.id === settings.countInMode, (c) => { settings.countInMode = c.id; });
+    chip("countin-bars-chips", COUNT_IN_BARS.map((n) => ({ id: n, label: `${n} bar${n > 1 ? "s" : ""}` })), (c) => c.id === settings.countInBars, (c) => { settings.countInBars = c.id; });
+    $("countin-bars").hidden = settings.countInMode === "off";
+    chip("tempo-change-chips", TEMPO_CHANGE, (t) => t.id === settings.tempoChange, (t) => { settings.tempoChange = t.id; log(`Tempo changes land on: ${t.label}`); });
     chip("sound-chips", SOUNDS, (s) => s.id === settings.sound, (s) => { settings.sound = s.id; });
     chip("awake-chips", [{ id: "off", label: "Off" }, { id: "playing", label: "While playing" }, { id: "always", label: "Always" }],
       (a) => a.id === settings.awake, (a) => {
@@ -744,7 +809,7 @@
     lines.push(`  Tightest lead: ${Number.isFinite(stats.minHeadroom) ? (stats.minHeadroom * 1000).toFixed(1) + " ms" : "n/a"}`);
     lines.push(`  Audio vs system clock: ${stats.driftPpm === null ? "n/a" : stats.driftPpm.toFixed(1) + " ppm"}`);
     lines.push(`  Interruptions: ${stats.interruptions}`);
-    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countIn}, ${settings.sound}, volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}`);
+    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, ${settings.sound}, volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}`);
     lines.push("", "Checklist");
     for (const c of CHECKS) for (const r of c.rows) lines.push(`  ${r.label}: ${answers[r.id] || "Not tried"}`);
     lines.push("", "Notes", `  ${$("notes").value.trim() || "(none)"}`, "", "Event log (oldest first)");
@@ -759,11 +824,12 @@
     settings.bpm = next;
     renderTempo();
     renderTempoNote();
-    queueChange();
+    queueChange("tempo");
     saveStore();
   }
 
-  $("start").addEventListener("click", () => (eng.status === "playing" || eng.status === "countIn" ? stop() : start()));
+  $("start").addEventListener("click", () => (isRunning() ? stop() : eng.status === "paused" ? start(true) : start()));
+  $("pause").addEventListener("click", () => (isRunning() ? pause() : eng.status === "paused" ? stop() : null));
   $("banner-dismiss").addEventListener("click", () => { hideBanner(); if (eng.status === "interrupted") setStatus("idle"); });
   document.querySelectorAll("[data-nudge]").forEach((b) => b.addEventListener("click", () => setBpm(Math.round(settings.bpm) + Number(b.dataset.nudge))));
 
@@ -823,7 +889,7 @@
     settings.accents = accents;
     renderBeats();
     renderActiveBeat();
-    queueChange();
+    queueChange("pattern");
     saveStore();
   });
 

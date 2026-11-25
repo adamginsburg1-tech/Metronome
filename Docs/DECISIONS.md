@@ -99,3 +99,21 @@ Share icon in the address bar → Add to Home Screen).
 engine like every other browser, so audio behaviour should match Safari, but
 features such as Wake Lock and home-screen installs can differ between
 Safari and apps built on WebKit. Running the checks in both settles it.
+
+## D-013 · Tempo changes land on the next beat; segments may start mid-bar (owner, O-1)
+**Decision:** While playing, a tempo change takes effect on the next beat of the
+tempo's beat unit; a setting switches to the next bar. Meter, subdivision and
+accent changes always land on the next bar line.
+**Engine:** Segments can now be measured in grid events and may start mid-bar
+(`startGrid` is derived, not stored). A pattern may only change at grid 0; the
+plan rejects anything else. New API in both cores: `firstBoundary(atOrAfter:unit:)`
+/ `firstBoundaryAtOrAfter(t, unit)`, `changing(at:)` / `changingAt(pos)`,
+`beatGrids`, and `grid` on each event. Earlier events still never move.
+
+## D-014 · Pause in Quick Click (owner, O-3)
+Pause silences at once and keeps bar count and elapsed time; Resume continues
+from the next bar number. Stop sits beside Resume while paused.
+
+## D-015 · Count-in modes (owner, O-4)
+Every start (including Resume, default) / First start only (first Start after
+opening) / Off, with a 1- or 2-bar length.
