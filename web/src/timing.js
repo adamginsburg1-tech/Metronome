@@ -196,6 +196,15 @@
 
     startTimeOfBar(bar) { return this.timeOf({ bar, grid: 0 }); }
 
+    /** Start and end time of segment `i` (end is Infinity for an open-ended segment). */
+    segmentSpan(i) {
+      const r = this._r[i];
+      if (!r) return null;
+      return { start: r.anchor, end: r.count === Infinity ? Infinity : r.anchor + r.count * r.step };
+    }
+
+    get segmentCount() { return this._r.length; }
+
     /**
      * First boundary at or after `t`. `unit` is "bar" (downbeats) or "beat"
      * (beats of each segment's tempo beat unit). Returns {bar, grid} or null.

@@ -63,7 +63,10 @@
     {
       id: "steady", title: "1 · Steady for 30 minutes",
       text: "Wired headphones, your practice tempo, screen on. Let it run 30 minutes. It passes if it sounds steady and Missed clicks stays at 0. To compare browsers, run the checks in each one (Safari, Chrome) and copy a report from each.",
-      rows: [{ id: "steady", label: "30-minute run", options: ["Not tried", "Steady, 0 missed", "Heard a glitch", "Missed clicks"] }],
+      rows: [
+        { id: "steady", label: "30-minute run", options: ["Not tried", "Steady, 0 missed", "Heard a glitch", "Missed clicks"] },
+        { id: "ladder", label: "Practice ladder runs start to finish with correct stage changes", options: ["Not tried", "Worked", "A stage change was wrong", "Something else (see notes)"] },
+      ],
     },
     {
       id: "interrupt", title: "2 · Interruptions",
@@ -104,7 +107,8 @@
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, sound: settings.sound, volume: settings.volume,
-        awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab, answers, notes: $("notes").value,
+        awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
+        workspace: settings.workspace, routine: routineCfg, sessions, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -129,8 +133,15 @@
     // Visual concept being compared (plan §04): a Studio, b Workshop, c Stage.
     concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "a",
     settingsTab: ["click", "look", "ipad", "test"].includes(stored.settingsTab) ? stored.settingsTab : "click",
+    workspace: stored.workspace === "practice" ? "practice" : "click",
   };
   const answers = stored.answers || {};
+
+  // Practice ladder setup (plan §07 "First personalized practice routine").
+  const ROUTINE_DEFAULTS = { start: 130, step: 5, top: 160, play: 30, rest: 15, subdivision: 2 };
+  const routineCfg = Object.assign({}, ROUTINE_DEFAULTS, stored.routine && typeof stored.routine === "object" ? stored.routine : {});
+  // Saved sessions live on this device only (a repository comes later, plan §08).
+  const sessions = Array.isArray(stored.sessions) ? stored.sessions.slice(0, 20) : [];
 
   // ---------- engine state ----------
   const eng = {
@@ -366,10 +377,13 @@
       if (eng.ctx.state !== "running") await eng.ctx.resume();
       await track;
       if (eng.ctx.state !== "running") throw new Error(`audio is ${eng.ctx.state}`);
-      const pattern = currentPattern();
-      const tempo = currentTempo();
-      const countIn = countInFor(isResume);
-      eng.plan = T.PlaybackPlan.click({ pattern, tempo, countInBars: countIn, startTime: eng.ctx.currentTime + START_DELAY });
+      const practice = settings.workspace === "practice";
+      if (practice && !isResume) beginRoutine();
+      const pattern = practice ? routinePattern() : currentPattern();
+      const tempo = practice ? routineTempo(rt.stages[rt.resumeStage]) : currentTempo();
+      const countIn = practice ? 1 : countInFor(isResume);
+      if (practice) buildRoutinePlan(rt.resumeStage, eng.ctx.currentTime + START_DELAY);
+      else eng.plan = T.PlaybackPlan.click({ pattern, tempo, countInBars: countIn, startTime: eng.ctx.currentTime + START_DELAY });
       eng.scheduledUntil = eng.plan.startTime;
       eng.visual = [];
       eng.pending = null;
@@ -416,6 +430,7 @@
 
   function pause() {
     if (!isRunning()) return;
+    if (rt.active && rt.current) rt.resumeStage = rt.current.stage;
     // Resume continues from the next bar number.
     if (eng.currentBar !== null && eng.currentBar >= 0) eng.barOffset += eng.currentBar + 1;
     silence();
@@ -428,6 +443,7 @@
     if ((eng.status === "idle" || eng.status === "interrupted") && !reason) return;
     silence();
     stopSilentTrack();
+    if (rt.active) endRoutine();
     if (reason) {
       stats.interruptions++;
       setStatus("interrupted");
@@ -449,7 +465,9 @@
     // Primary: Start / Stop / Resume. Secondary: Pause while running, Stop while paused.
     const primary = $("start");
     primary.dataset.running = String(running);
-    primary.textContent = running ? "Stop" : s === "paused" ? "Resume" : "Start";
+    primary.textContent = running ? "Stop" : s === "paused" ? "Resume" : settings.workspace === "practice" ? "Start ladder" : "Start";
+    const locked = running || s === "paused";
+    for (const id of ["ws-click", "ws-practice", "rail-click", "rail-practice"]) $(id).disabled = locked && !$(id).matches("[aria-pressed='true'], [aria-current='page']");
     const secondary = $("pause");
     secondary.hidden = !(running || s === "paused");
     secondary.textContent = s === "paused" ? "Stop" : "Pause";
@@ -548,7 +566,7 @@
 
   /** kind: "tempo" or "pattern". A pattern change carries the tempo too (meter can change the beat unit). */
   function queueChange(kind) {
-    if (!isRunning()) return;
+    if (!isRunning() || rt.active) return;
     const prev = eng.pending || {};
     const pattern = kind === "pattern" ? currentPattern() : prev.pattern;
     const tempo = currentTempo();
@@ -715,6 +733,7 @@
     const running = eng.status === "playing" || eng.status === "countIn";
     if (running && eng.ctx) {
       const t = eng.ctx.currentTime - (eng.ctx.outputLatency || 0);
+      if (rt.active) updatePractice(t);
       let latest = null;
       while (eng.visual.length && eng.visual[0].time <= t) latest = eng.visual.shift();
       if (latest && eng.queued && (latest.bar > eng.queued.bar || (latest.bar === eng.queued.bar && latest.grid >= eng.queued.grid))) {
@@ -741,7 +760,8 @@
       }
       const elapsed = eng.elapsedBefore + (performance.now() - eng.runStartPerf) / 1000;
       $("pos-time").textContent = fmtClock(elapsed);
-      $("pos-bar").textContent = eng.currentBar === null ? (eng.barOffset ? `Bar ${eng.barOffset + 1}` : "Bar –") : eng.currentBar < 0 ? `Count-in ${eng.currentBar + eng.countInBars + 1}` : `Bar ${eng.currentBar + eng.barOffset + 1}`;
+      if (rt.active && rt.current) $("pos-bar").textContent = `Stage ${rt.current.stage + 1}/${rt.stages.length}`;
+      else $("pos-bar").textContent = eng.currentBar === null ? (eng.barOffset ? `Bar ${eng.barOffset + 1}` : "Bar –") : eng.currentBar < 0 ? `Count-in ${eng.currentBar + eng.countInBars + 1}` : `Bar ${eng.currentBar + eng.barOffset + 1}`;
     }
     requestAnimationFrame(frame);
   }
@@ -868,6 +888,7 @@
     $("countin-bars").hidden = settings.countInMode === "off";
     chip("tempo-change-chips", TEMPO_CHANGE, (t) => t.id === settings.tempoChange, (t) => { settings.tempoChange = t.id; log(`Tempo changes land on: ${t.label}`); });
     renderLcd();
+    renderPracticeChips();
     chip("concept-chips", CONCEPTS, (c) => c.id === settings.concept, (c) => {
       if (c.id === settings.concept) return;
       settings.concept = c.id;
@@ -977,6 +998,11 @@
     lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, ${settings.sound}, volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}, play in silent mode ${settings.playOnSilent}`);
     lines.push("", "Checklist");
     for (const c of CHECKS) for (const r of c.rows) lines.push(`  ${r.label}: ${answers[r.id] || "Not tried"}`);
+    lines.push("", "Practice sessions (latest first)");
+    if (!sessions.length) lines.push("  (none saved)");
+    for (const x of sessions.slice(0, 5)) {
+      lines.push(`  ${x.date.slice(0, 16).replace("T", " ")}: ${x.start}→${x.top} by ${x.step}, ${x.play}s/${x.rest}s, clean ${x.cleanTempo ?? "–"} BPM, ${x.stages.filter((r) => r.completed).length}/${x.stages.length} stages done${x.notes ? `, notes: ${x.notes}` : ""}`);
+    }
     lines.push("", "Notes", `  ${$("notes").value.trim() || "(none)"}`, "", "Event log (oldest first)");
     for (const e of logEntries) lines.push(`  ${e.at.slice(11, 19)} [${e.status}] ${e.message}`);
     return lines.join("\n");
@@ -1157,6 +1183,323 @@
     offlineStatus = "not supported";
   }
 
+  // ---------- practice: interval ladder (M2) ----------
+  // The whole ladder is one immutable plan: count-in, play stage 1, then for each
+  // later stage a silent rest that ends in a 1-bar count-in at the next tempo, then
+  // play. Stages are rounded to whole bars so every stage starts on a downbeat.
+  // Repeat / Step down rebuild the plan from the next rest; earlier clicks never move.
+  const rt = { active: false, stages: [], meta: [], playIdx: [], log: [], current: null, resumeStage: 0, summaryOpen: false, startedAt: null, rateStage: null, discardArmed: false };
+
+  function clampCfg() {
+    const n = (v, lo, hi, d) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+    routineCfg.start = n(Math.round(routineCfg.start), T.TEMPO_MIN, T.TEMPO_MAX, 130);
+    routineCfg.step = n(Math.round(routineCfg.step), 1, 20, 5);
+    routineCfg.top = n(Math.round(routineCfg.top), routineCfg.start, T.TEMPO_MAX, Math.max(routineCfg.start, 160));
+    routineCfg.play = n(Math.round(routineCfg.play), 5, 600, 30);
+    routineCfg.rest = n(Math.round(routineCfg.rest), 0, 300, 15);
+    routineCfg.subdivision = [1, 2, 3, 4].includes(routineCfg.subdivision) ? routineCfg.subdivision : 2;
+  }
+  function ladder(from) {
+    const out = [];
+    for (let t = from; t <= routineCfg.top + 1e-9 && out.length < 60; t += routineCfg.step) out.push(t);
+    return out.length ? out : [from];
+  }
+  function routinePattern() {
+    const meter = currentMeter();
+    return T.makePattern({ meter, subdivision: routineCfg.subdivision, accents: currentAccents(meter) });
+  }
+  const routineTempo = (bpm) => T.makeTempo(bpm, currentMeter().defaultBeatUnit);
+  function stageBars(seconds, tempo, pattern) {
+    const barSec = tempo.secondsPerWhole * pattern.meter.num / pattern.meter.den;
+    return { bars: Math.max(1, Math.round(seconds / barSec)), barSec };
+  }
+  function segmentsForStage(stages, i, withRest) {
+    const pattern = routinePattern();
+    const meter = pattern.meter;
+    const tempo = routineTempo(stages[i]);
+    const countIn = T.makePattern({ meter, subdivision: 1, accents: pattern.accents.map((l) => (l === T.LEVEL.muted ? T.LEVEL.normal : l)) });
+    const items = [];
+    if (withRest) {
+      const { bars } = stageBars(routineCfg.rest, tempo, pattern);
+      if (bars > 1) {
+        const silent = T.makePattern({ meter, accents: Array(meter.num).fill(T.LEVEL.muted), subLevel: T.LEVEL.muted });
+        items.push({ seg: T.makeSegment({ pattern: silent, tempo, bars: bars - 1 }), meta: { stage: i, phase: "rest" } });
+      }
+    }
+    items.push({ seg: T.makeSegment({ pattern: countIn, tempo, bars: 1, role: "countIn" }), meta: { stage: i, phase: "countIn" } });
+    items.push({ seg: T.makeSegment({ pattern, tempo, bars: stageBars(routineCfg.play, tempo, pattern).bars }), meta: { stage: i, phase: "play" } });
+    return items;
+  }
+  function indexPlays() {
+    rt.playIdx = [];
+    rt.meta.forEach((m, i) => { if (m.phase === "play") rt.playIdx[m.stage] = i; });
+  }
+  function buildRoutinePlan(from, startTime) {
+    const items = segmentsForStage(rt.stages, from, false);
+    for (let i = from + 1; i < rt.stages.length; i++) items.push(...segmentsForStage(rt.stages, i, true));
+    eng.plan = new T.PlaybackPlan(items.map((x) => x.seg), startTime);
+    rt.meta = items.map((x) => x.meta);
+    rt.current = null;
+    indexPlays();
+  }
+  function beginRoutine() {
+    clampCfg();
+    rt.stages = ladder(routineCfg.start);
+    rt.log = rt.stages.map((tempo) => ({ tempo, started: false, completed: false, effort: null, clean: false }));
+    rt.resumeStage = 0;
+    rt.active = true;
+    rt.summaryOpen = false;
+    rt.rateStage = null;
+    rt.finished = false;
+    rt.startedAt = new Date().toISOString();
+    log(`Ladder: ${rt.stages.join(" → ")} BPM, ${routineCfg.play} s play, ${routineCfg.rest} s rest`);
+    renderPractice();
+  }
+
+  function updatePractice(t) {
+    const plan = eng.plan;
+    let idx = 0;
+    for (let i = 0; i < plan.segmentCount; i++) {
+      const span = plan.segmentSpan(i);
+      if (t >= span.start) idx = i;
+    }
+    const end = plan.endTime;
+    if (end !== null && t >= end) {
+      if (rt.current && rt.current.phase === "play") rt.log[rt.current.stage].completed = true;
+      rt.finished = true;
+      log("Ladder complete", "info");
+      stop();
+      return;
+    }
+    const meta = rt.meta[idx];
+    if (!rt.current || rt.current.idx !== idx) {
+      const prev = rt.current;
+      if (prev && prev.phase === "play" && prev.stage !== meta.stage) {
+        rt.log[prev.stage].completed = true;
+        rt.rateStage = prev.stage;
+      }
+      if (meta.phase === "play") rt.log[meta.stage].started = true;
+      rt.current = { ...meta, idx };
+      renderPracticeLive();
+    }
+    const playSpan = plan.segmentSpan(rt.playIdx[meta.stage]);
+    const left = meta.phase === "play" ? playSpan.end - t : playSpan.start - t;
+    const secs = Math.max(0, Math.ceil(left));
+    const text = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+    if ($("rt-time").textContent !== text) $("rt-time").textContent = text;
+  }
+
+  function renderPracticeLive() {
+    const cur = rt.current;
+    if (!cur) return;
+    const stage = cur.stage;
+    $("rt-phase").dataset.phase = cur.phase;
+    $("rt-phase").textContent = { play: "Play", rest: "Rest", countIn: "Count-in" }[cur.phase];
+    $("rt-tempo").textContent = fmtBpm(rt.stages[stage]);
+    const next = rt.stages[stage + 1];
+    $("rt-stage").textContent = `Stage ${stage + 1} of ${rt.stages.length}${cur.phase === "play" ? (next !== undefined ? ` · Next: ${fmtBpm(next)} BPM` : " · Last stage") : ` · Coming up: ${fmtBpm(rt.stages[stage])} BPM`}`;
+    const canChange = cur.phase === "play";
+    $("rt-repeat").disabled = !canChange;
+    $("rt-down").disabled = !canChange;
+    renderRating();
+  }
+  function renderRating() {
+    const show = rt.rateStage !== null && rt.current && rt.current.phase !== "play";
+    $("rt-rate").hidden = !show;
+    if (!show) return;
+    const entry = rt.log[rt.rateStage];
+    $("rt-rate-q").textContent = `How did ${fmtBpm(entry.tempo)} feel?`;
+    $("rt-clean").checked = entry.clean;
+    renderPracticeChips();
+  }
+  function renderPracticeChips() {
+    chip("rt-sub-chips", [1, 2, 3, 4].map((n) => ({ id: n, label: n === 1 ? "Off" : `÷${n}` })), (x) => x.id === routineCfg.subdivision, (x) => { routineCfg.subdivision = x.id; renderPreview(); });
+    if (rt.rateStage !== null && rt.log[rt.rateStage]) {
+      const entry = rt.log[rt.rateStage];
+      chip("rt-effort", [1, 2, 3, 4, 5].map((n) => ({ id: n, label: String(n), note: n === 1 ? "easy" : n === 5 ? "hard" : "" })), (x) => x.id === entry.effort, (x) => { entry.effort = x.id; log(`Effort ${x.id} for ${fmtBpm(entry.tempo)} BPM`); });
+    }
+  }
+
+  /** Repeat the current stage, or step down, from the next rest on. */
+  function changeLadder(kind) {
+    const cur = rt.current;
+    if (!rt.active || !cur || cur.phase !== "play") return;
+    const plan = eng.plan;
+    const nextIdx = rt.meta.findIndex((m) => m.stage === cur.stage + 1);
+    const boundary = nextIdx >= 0 ? plan.segmentSpan(nextIdx).start : plan.endTime;
+    if (boundary <= eng.scheduledUntil + 0.01) { $("rt-note").textContent = "Too late for this stage. Try again during the next one."; return; }
+    const keep = rt.stages.slice(0, cur.stage + 1);
+    const stages = kind === "repeat"
+      ? keep.concat([rt.stages[cur.stage]], rt.stages.slice(cur.stage + 1))
+      : keep.concat(ladder(Math.max(T.TEMPO_MIN, rt.stages[cur.stage] - routineCfg.step)));
+    const cut = nextIdx >= 0 ? nextIdx : plan.segmentCount;
+    const tail = [];
+    for (let i = cur.stage + 1; i < stages.length; i++) tail.push(...segmentsForStage(stages, i, true));
+    eng.plan = new T.PlaybackPlan(plan.segments.slice(0, cut).concat(tail.map((x) => x.seg)), plan.startTime);
+    rt.meta = rt.meta.slice(0, cut).concat(tail.map((x) => x.meta));
+    rt.stages = stages;
+    rt.log = rt.log.slice(0, cur.stage + 1).concat(stages.slice(cur.stage + 1).map((tempo) => ({ tempo, started: false, completed: false, effort: null, clean: false })));
+    indexPlays();
+    const msg = kind === "repeat" ? `Repeating ${fmtBpm(rt.stages[cur.stage])} BPM next` : `Next stage: ${fmtBpm(stages[cur.stage + 1])} BPM, then up again`;
+    $("rt-note").textContent = msg;
+    log(`Ladder changed (${kind === "repeat" ? "repeat" : "step down"}): ${stages.slice(cur.stage + 1).join(" → ")} BPM`);
+    renderPracticeLive();
+  }
+
+  function endRoutine() {
+    rt.active = false;
+    rt.summaryOpen = rt.log.some((x) => x.started);
+    rt.current = null;
+    rt.discardArmed = false;
+    $("rt-note").textContent = "";
+    renderPractice();
+    if (rt.summaryOpen) renderSummary();
+  }
+  function renderSummary() {
+    const rows = $("rt-rows");
+    rows.textContent = "";
+    rt.log.forEach((entry, i) => {
+      if (!entry.started) return;
+      const tr = document.createElement("tr");
+      const td = (content) => { const c = document.createElement("td"); if (content instanceof Node) c.append(content); else c.textContent = content; tr.append(c); };
+      td(String(i + 1));
+      td(`${fmtBpm(entry.tempo)}`);
+      td(entry.completed ? "Yes" : "Stopped");
+      const sel = document.createElement("select");
+      sel.setAttribute("aria-label", `Effort for stage ${i + 1}`);
+      for (const v of ["–", "1", "2", "3", "4", "5"]) { const o = document.createElement("option"); o.textContent = v; sel.append(o); }
+      sel.value = entry.effort ? String(entry.effort) : "–";
+      sel.addEventListener("change", () => { entry.effort = sel.value === "–" ? null : Number(sel.value); });
+      td(sel);
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = entry.clean;
+      cb.setAttribute("aria-label", `Stage ${i + 1} was clean`);
+      cb.addEventListener("change", () => { entry.clean = cb.checked; fillCleanTempo(); });
+      td(cb);
+      rows.append(tr);
+    });
+    const done = rt.log.filter((x) => x.completed).length;
+    $("rt-sum-title").textContent = rt.finished ? `Ladder complete · ${done} stages` : `Stopped · ${done} stage${done === 1 ? "" : "s"} completed`;
+    $("rt-notes").value = "";
+    fillCleanTempo();
+  }
+  function fillCleanTempo() {
+    const sel = $("rt-clean-tempo");
+    const tempos = [...new Set(rt.log.filter((x) => x.started).map((x) => x.tempo))].sort((a, b) => b - a);
+    const clean = rt.log.filter((x) => x.clean).map((x) => x.tempo);
+    const done = rt.log.filter((x) => x.completed).map((x) => x.tempo);
+    const best = clean.length ? Math.max(...clean) : done.length ? Math.max(...done) : tempos[tempos.length - 1];
+    sel.textContent = "";
+    for (const t of tempos) { const o = document.createElement("option"); o.value = String(t); o.textContent = `${fmtBpm(t)} BPM`; sel.append(o); }
+    if (best !== undefined) sel.value = String(best);
+  }
+  function renderPractice() {
+    $("practice-setup").hidden = rt.active || rt.summaryOpen;
+    $("practice-live").hidden = !rt.active;
+    $("practice-summary").hidden = !rt.summaryOpen;
+    if (!rt.active && !rt.summaryOpen) {
+      for (const k of ["start", "step", "top", "play", "rest"]) $(`rt-${k}`).value = String(routineCfg[k]);
+      renderPreview();
+    }
+    renderHistory();
+  }
+  function renderPreview() {
+    clampCfg();
+    const stages = ladder(routineCfg.start);
+    const pattern = routinePattern();
+    let total = 0;
+    stages.forEach((bpm, i) => {
+      const tempo = routineTempo(bpm);
+      const play = stageBars(routineCfg.play, tempo, pattern);
+      total += play.bars * play.barSec;
+      const rest = stageBars(routineCfg.rest, tempo, pattern);
+      total += i === 0 ? play.barSec : rest.bars * rest.barSec;
+    });
+    const m = Math.floor(total / 60), sec = Math.round(total % 60);
+    $("rt-preview").textContent = `${stages.length} stage${stages.length === 1 ? "" : "s"}: ${stages.join(" → ")} BPM · about ${m} min ${String(sec).padStart(2, "0")} s`;
+  }
+  function renderHistory() {
+    const list = $("rt-history");
+    list.textContent = "";
+    if (!sessions.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "Sessions you save appear here.";
+      list.append(li);
+      return;
+    }
+    for (const x of sessions.slice(0, 10)) {
+      const li = document.createElement("li");
+      const when = new Date(x.date);
+      const head = document.createElement("div");
+      head.textContent = `${when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · clean ${x.cleanTempo ?? "–"} BPM`;
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const efforts = x.stages.map((r) => r.effort).filter(Boolean);
+      const avg = efforts.length ? (efforts.reduce((a, b) => a + b, 0) / efforts.length).toFixed(1) : null;
+      meta.textContent = `${x.start}→${x.top} by ${x.step} · ${x.stages.filter((r) => r.completed).length}/${x.stages.length} stages${avg ? ` · effort ${avg}` : ""}${x.notes ? ` · ${x.notes}` : ""}`;
+      li.append(head, meta);
+      list.append(li);
+    }
+  }
+
+  for (const k of ["start", "step", "top", "play", "rest"]) {
+    $(`rt-${k}`).addEventListener("change", (e) => {
+      routineCfg[k] = Number(e.target.value);
+      clampCfg();
+      for (const j of ["start", "step", "top", "play", "rest"]) $(`rt-${j}`).value = String(routineCfg[j]);
+      renderPreview();
+      saveStore();
+    });
+  }
+  $("rt-repeat").addEventListener("click", () => changeLadder("repeat"));
+  $("rt-down").addEventListener("click", () => changeLadder("down"));
+  $("rt-clean").addEventListener("change", (e) => { if (rt.rateStage !== null) rt.log[rt.rateStage].clean = e.target.checked; });
+  $("rt-save").addEventListener("click", () => {
+    const session = {
+      date: rt.startedAt || new Date().toISOString(),
+      start: routineCfg.start, step: routineCfg.step, top: routineCfg.top, play: routineCfg.play, rest: routineCfg.rest,
+      meter: currentMeter().label, subdivision: routineCfg.subdivision,
+      stages: rt.log.filter((x) => x.started).map(({ tempo, completed, effort, clean }) => ({ tempo, completed, effort, clean })),
+      cleanTempo: Number($("rt-clean-tempo").value) || null,
+      notes: $("rt-notes").value.trim(),
+    };
+    sessions.unshift(session);
+    sessions.length = Math.min(sessions.length, 20);
+    rt.summaryOpen = false;
+    rt.finished = false;
+    saveStore();
+    log(`Session saved: clean ${session.cleanTempo} BPM`, "info");
+    renderPractice();
+  });
+  $("rt-discard").addEventListener("click", () => {
+    if (!rt.discardArmed) { rt.discardArmed = true; $("rt-discard").textContent = "Tap again to discard"; return; }
+    rt.discardArmed = false;
+    $("rt-discard").textContent = "Discard";
+    rt.summaryOpen = false;
+    rt.finished = false;
+    log("Session discarded");
+    renderPractice();
+  });
+
+  function setWorkspace(name) {
+    if (isRunning() || eng.status === "paused") return;
+    settings.workspace = name;
+    document.documentElement.dataset.workspace = name;
+    $("ws-click").setAttribute("aria-pressed", String(name === "click"));
+    $("ws-practice").setAttribute("aria-pressed", String(name === "practice"));
+    if (name === "click") { $("rail-click").setAttribute("aria-current", "page"); $("rail-practice").removeAttribute("aria-current"); }
+    else { $("rail-practice").setAttribute("aria-current", "page"); $("rail-click").removeAttribute("aria-current"); }
+    setStatus(eng.status);
+    renderPractice();
+    saveStore();
+  }
+  $("ws-click").addEventListener("click", () => setWorkspace("click"));
+  $("ws-practice").addEventListener("click", () => setWorkspace("practice"));
+  $("rail-click").addEventListener("click", () => setWorkspace("click"));
+  $("rail-practice").addEventListener("click", () => setWorkspace("practice"));
+
   // ---------- console readout (concept D) ----------
   const NOTE_NAMES = { 1: "Whole", 2: "Half", 4: "Quarter", 8: "Eighth", 16: "Sixteenth", 32: "Thirty-second" };
   function subdivisionName(pattern) {
@@ -1309,6 +1652,7 @@
   // ---------- boot ----------
   buildDial();
   applyConcept();
+  setWorkspace(settings.workspace);
   renderTempo();
   renderBeats();
   renderSetup();

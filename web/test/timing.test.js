@@ -163,3 +163,27 @@ test("pattern change after a mid-bar tempo change still lands on the bar line", 
   assert.deepEqual(changed.eventsIn(bar1, bar1 + 1.8 - 1e-9).map((e) => e.level), [4, 2, 2]);
   assert.throws(() => plan.changingAt({ bar: 0, grid: 2 }, (s) => ({ ...s, pattern: T.makePattern({ meter: T.makeMeter(3, 4) }) })));
 });
+
+test("segment spans tile the timeline for a practice ladder", () => {
+  const meter = T.makeMeter(4, 4);
+  const play = T.makePattern({ meter, subdivision: 2 });
+  const silent = T.makePattern({ meter, accents: [0, 0, 0, 0], subLevel: 0 });
+  const countIn = T.makePattern({ meter });
+  const t1 = T.makeTempo(120), t2 = T.makeTempo(150);
+  const plan = new T.PlaybackPlan([
+    T.makeSegment({ pattern: countIn, tempo: t1, bars: 1, role: "countIn" }),
+    T.makeSegment({ pattern: play, tempo: t1, bars: 2 }),
+    T.makeSegment({ pattern: silent, tempo: t2, bars: 3 }),
+    T.makeSegment({ pattern: countIn, tempo: t2, bars: 1, role: "countIn" }),
+    T.makeSegment({ pattern: play, tempo: t2, bars: 2 }),
+  ], 1);
+  assert.equal(plan.segmentCount, 5);
+  const spans = [0, 1, 2, 3, 4].map((i) => plan.segmentSpan(i));
+  assert.deepEqual(spans.map((s) => +s.start.toFixed(9)), [1, 3, 7, 11.8, 13.4]);
+  for (let i = 1; i < 5; i++) assert.equal(spans[i].start, spans[i - 1].end);
+  assert.ok(Math.abs(plan.endTime - 16.6) < 1e-9);
+  // The rest is silent: no events between the end of stage 1 and the count-in.
+  assert.equal(plan.eventsIn(spans[2].start, spans[2].end).length, 0);
+  assert.equal(plan.eventsIn(spans[3].start, spans[3].end).every((e) => e.role === "countIn"), true);
+  assert.equal(plan.segmentSpan(9), null);
+});

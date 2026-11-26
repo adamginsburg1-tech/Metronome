@@ -151,3 +151,15 @@ subdivision also appear in Settings so the Stage look (which hides them) can
 still change them.
 **Why non-modal:** the plan's rule that Stop is always reachable. The sheet
 ends above the transport bar instead of covering the whole screen.
+
+## D-020 · Practice ladder as one plan, stages rounded to whole bars (M2)
+**Decision:** The interval ladder compiles to a single PlaybackPlan (count-in,
+play, then silent rest + 1-bar count-in at the next tempo, play, …). Stage and
+rest lengths round to whole bars. Repeat/Step down splice a new tail in at the
+next rest; the head is reused unchanged, so no earlier click moves. Pause →
+Resume restarts the current stage with a count-in. Sessions are stored on this
+device (localStorage) until the persistence layer exists (plan §08).
+**Why whole bars:** every stage starts on a downbeat, which matters more for
+footwork than exact 30.0 s stages.
+**JS core:** adds `segmentSpan(i)` / `segmentCount` (not yet in Swift; the native
+app will need the same when Practice is ported).

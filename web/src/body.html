@@ -2,6 +2,10 @@
   <header class="topbar">
     <div class="brand"><strong>POCKET</strong><span>Web test · Quick Click</span></div>
     <div class="topbar-end">
+      <div class="workspace-switch" role="group" aria-label="Workspace">
+        <button type="button" class="chip" id="ws-click" aria-pressed="true">Click</button>
+        <button type="button" class="chip" id="ws-practice" aria-pressed="false">Practice</button>
+      </div>
       <div class="pill" id="status-pill" data-state="idle" role="status">Ready</div>
       <button type="button" class="btn settings-btn" id="open-settings" aria-haspopup="dialog" aria-controls="settings" aria-expanded="false">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
@@ -17,8 +21,8 @@
 
   <main class="layout">
     <nav class="rail" aria-label="Workspaces">
-      <button type="button" aria-current="page">Click</button>
-      <button type="button" disabled>Practice <small>Later</small></button>
+      <button type="button" id="rail-click" aria-current="page">Click</button>
+      <button type="button" id="rail-practice">Practice</button>
       <button type="button" disabled>Groove <small>Later</small></button>
       <button type="button" disabled>Library <small>Later</small></button>
     </nav>
@@ -63,6 +67,60 @@
         </div>
       </div>
       <p class="hint">Count-in, sound, look and iPad options are in Settings.</p>
+    </section>
+
+    <section class="panel practice" id="practice-view" aria-label="Practice">
+      <div class="practice-setup" id="practice-setup">
+        <h2>Interval ladder</h2>
+        <p class="hint">Play, rest, step up, until your top tempo. One bar of count-in before the first stage and at the end of every rest. Uses the meter and sound from Click.</p>
+        <div class="form-grid">
+          <label class="num-field">Start tempo <input id="rt-start" type="number" inputmode="decimal" min="20" max="300" step="1"></label>
+          <label class="num-field">Step up by <input id="rt-step" type="number" inputmode="decimal" min="1" max="20" step="1"></label>
+          <label class="num-field">Top tempo <input id="rt-top" type="number" inputmode="decimal" min="20" max="300" step="1"></label>
+          <label class="num-field">Play (seconds) <input id="rt-play" type="number" inputmode="numeric" min="5" max="600" step="5"></label>
+          <label class="num-field">Rest (seconds) <input id="rt-rest" type="number" inputmode="numeric" min="0" max="300" step="5"></label>
+        </div>
+        <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="rt-sub-chips"></div></fieldset>
+        <p class="rt-preview" id="rt-preview"></p>
+      </div>
+
+      <div class="practice-live" id="practice-live" hidden>
+        <div class="rt-phase" id="rt-phase" data-phase="countIn">Count-in</div>
+        <div class="rt-big"><span class="rt-tempo" id="rt-tempo">130</span><span class="bpm-unit">BPM</span></div>
+        <div class="rt-time" id="rt-time" aria-live="off">0:30</div>
+        <p class="rt-stage" id="rt-stage"></p>
+        <div class="rt-actions">
+          <button type="button" class="btn" id="rt-repeat">Repeat this stage</button>
+          <button type="button" class="btn" id="rt-down">Step down</button>
+        </div>
+        <p class="rt-note" id="rt-note" aria-live="polite"></p>
+        <div class="rt-rate" id="rt-rate" hidden>
+          <p class="rt-rate-q" id="rt-rate-q">How did that feel?</p>
+          <div class="chips" id="rt-effort" role="group" aria-label="Effort, 1 easy to 5 hard"></div>
+          <label class="toggle"><input type="checkbox" id="rt-clean"> It was clean</label>
+        </div>
+      </div>
+
+      <div class="practice-summary" id="practice-summary" hidden>
+        <h2 id="rt-sum-title">Session</h2>
+        <div class="table-wrap">
+          <table class="rt-table">
+            <thead><tr><th scope="col">Stage</th><th scope="col">Tempo</th><th scope="col">Done</th><th scope="col">Effort</th><th scope="col">Clean</th></tr></thead>
+            <tbody id="rt-rows"></tbody>
+          </table>
+        </div>
+        <label class="num-field">Clean working tempo <select id="rt-clean-tempo"></select></label>
+        <label class="num-field">Technique notes <textarea id="rt-notes" class="notes" placeholder="Balance, relaxation, which foot led, what to try next time…"></textarea></label>
+        <div class="actions">
+          <button type="button" class="btn primary" id="rt-save">Save session</button>
+          <button type="button" class="btn" id="rt-discard">Discard</button>
+        </div>
+      </div>
+
+      <div class="practice-history">
+        <h3 class="subhead">Recent sessions</h3>
+        <ol class="rt-history" id="rt-history"></ol>
+      </div>
     </section>
   </main>
 

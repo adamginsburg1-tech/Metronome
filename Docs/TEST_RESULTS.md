@@ -129,3 +129,21 @@ counters; Esc closed it and returned focus to the Settings button; it reopened
 on the last tab; the backdrop closes it; a meter picked in the sheet updates the
 main screen; Stage hides the quick panel. No overflow at 390 px; no console
 errors. Screenshots reviewed at 1180×820 and 390×844.
+
+## 2026-11-26 · Practice ladder (Node + headless Chromium)
+
+- **JS core:** 16 tests, 0 failures. New: segment spans tile the timeline for a
+  ladder (count-in, play, silent rest, count-in, play); the rest produces no clicks.
+- **Browser run 1** (120 → 180 by 20, 5 s / 4 s): defaults shown as 130 / 5 /
+  160 / 30 / 15 with "7 stages … about 5 min 02 s"; step 60 clamped to 20;
+  workspace switch locked while playing; Repeat during stage 1 inserted 120
+  again; phases ran Count-in → Play → Count-in → Play (repeat) → Play 140 → Rest
+  …; the ladder ended by itself ("Ladder complete"); the session saved with notes
+  and appeared in Recent sessions.
+- **Browser run 2** (200 → 240 by 20, 5 s / 5 s): Step down set the next stage to
+  180; during the rest the screen showed "Rest · 180 · Coming up: 180 BPM" and
+  "How did 200 feel?"; effort 4 and clean were recorded and carried into the
+  summary ("1 | 200 | Yes | 4 | true", "2 | 180 | Stopped | – | false"); clean
+  working tempo proposed 200; Discard needed two taps; Pause → Resume restarted
+  the stage with a count-in.
+- No console errors; no overflow at 390 px. Not yet run with real playing.

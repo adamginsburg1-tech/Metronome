@@ -182,3 +182,44 @@ output-change setting, message placement, keyboard Start.
 - **O-2 · First launch:** 120 BPM, 4/4, 1-bar count-in. Fine for now.
 - **O-3 · Quick Click has Pause** (J5).
 - **O-4 · Count-in setting:** Every start / First start only / Off, plus length (J6).
+
+# UX: Practice · interval ladder (M2, first routine)
+
+Plan §07: "130 BPM eighth notes, 30 s playing / 15 s recovery, +5 BPM per stage,
+up to a user-selected cap. Show the next tempo, not a pressure-inducing score.
+Allow repeating or stepping down. Log clean working tempo, perceived effort
+(1–5), technique notes and whether the stage completed."
+
+## Flow
+1. **Practice** (top bar, or the rail on wide screens). The switch is locked
+   while playing or paused.
+2. **Set up:** start tempo, step, top tempo, play seconds, rest seconds,
+   subdivision. A preview line shows the stages and the total time, e.g.
+   "7 stages: 130 → … → 160 BPM · about 5 min". Meter, accents and sound come
+   from Click. Values are remembered on this device.
+3. **Start ladder:** one bar of count-in, then stage 1.
+4. **While playing:** a phase badge (Play / Rest / Count-in), the stage tempo,
+   time left, "Stage 2 of 7 · Next: 140 BPM". In a rest the big number is the
+   tempo coming up.
+   - **Repeat this stage** and **Step down** (only during Play) change what comes
+     after this stage. Step down goes one step lower and climbs again. The note
+     says what will happen ("Repeating 140 BPM next").
+   - **During each rest:** "How did 140 feel?" 1 (easy) to 5 (hard), and "It was
+     clean". Both optional.
+   - **Pause** keeps your place; **Resume** restarts the current stage with a count-in.
+5. **End:** the ladder ends after the top stage, or when you press Stop. The
+   summary lists each stage started (tempo, done or stopped, effort, clean),
+   proposes a clean working tempo (the highest stage marked clean, else the
+   highest completed), and takes technique notes. **Save session** or
+   **Discard** (tap twice).
+6. **Recent sessions** shows the last 10 saved: date, clean tempo, range,
+   stages done, average effort, notes.
+
+## Timing rules
+- Each stage and rest is rounded to whole bars, so every stage starts on a
+  downbeat. Displayed times reflect the rounded length.
+- A rest is silent bars plus one bar of count-in at the *next* tempo (count-in
+  sound, always distinguishable).
+- The whole ladder is one timing plan; changes rebuild it from the next rest
+  without moving any earlier click.
+- No automatic progression based on speed: the ladder stops at your top tempo.

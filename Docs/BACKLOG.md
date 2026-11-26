@@ -19,7 +19,7 @@ Status: ☐ todo · ◐ in progress · ☑ done. Milestones from plan §09.
 - ☑ Beat row previews the next pattern instead of switching early
 - ☑ Hold ±1 to repeat
 - ☑ Non-blocking "timing hiccup" notice
-- ☐ Practice routine UX (double-pedal ladder, stage log)
+- ☑ Practice routine UX and build: interval ladder with stage log (`Docs/UX.md`, D-020)
 
 ## M0 — Foundations (3–5 days)
 Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
@@ -45,6 +45,14 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
   switchable live in the web test (D-017)
 - ☐ **Owner:** try A/B/C at the stand, day and night; pick one
 - ☐ Carry the chosen concept into the Practice screens
+
+## M2 — Practice (started early in the web test)
+- ☑ Interval ladder: setup, live stages, repeat / step down, effort and clean
+  rating, summary, saved sessions on device
+- ☐ **Owner:** run a real double-pedal session; check stage changes (exit gate)
+- ☐ Gap click (muted bars/beats, optional random gaps with a seed)
+- ☐ Saved routines (more than one ladder; the other starter routines in plan §07)
+- ☐ Port `segmentSpan` to the Swift core
 
 ## M1 — Quick Click (1–2 weeks)
 - ☐ TransportController state machine: idle → preparing → count-in → playing ↔
