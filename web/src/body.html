@@ -66,7 +66,7 @@
           <output id="volume-out" for="volume">60%</output>
         </div>
       </div>
-      <p class="hint">Count-in, sound, look and iPad options are in Settings.</p>
+      <p class="hint">Count-in, sounds, look and iPad options are in Settings.</p>
     </section>
 
     <section class="panel practice" id="practice-view" aria-label="Practice">
@@ -134,6 +134,7 @@
     </header>
     <div class="tabs" role="tablist" aria-label="Settings sections">
       <button type="button" role="tab" id="tab-click" aria-controls="pane-click" aria-selected="true">Click</button>
+      <button type="button" role="tab" id="tab-sound" aria-controls="pane-sound" aria-selected="false" tabindex="-1">Sound</button>
       <button type="button" role="tab" id="tab-look" aria-controls="pane-look" aria-selected="false" tabindex="-1">Look</button>
       <button type="button" role="tab" id="tab-ipad" aria-controls="pane-ipad" aria-selected="false" tabindex="-1">iPad</button>
       <button type="button" role="tab" id="tab-test" aria-controls="pane-test" aria-selected="false" tabindex="-1">Test</button>
@@ -145,7 +146,24 @@
         <fieldset class="field"><legend>Count-in</legend><div class="chips" id="countin-chips"></div></fieldset>
         <fieldset class="field" id="countin-bars"><legend>Count-in length</legend><div class="chips" id="countin-bars-chips"></div></fieldset>
         <fieldset class="field"><legend>Tempo changes land on</legend><div class="chips" id="tempo-change-chips"></div></fieldset>
-        <fieldset class="field"><legend>Sound</legend><div class="chips" id="sound-chips"></div></fieldset>
+      </div>
+
+      <div class="pane" role="tabpanel" id="pane-sound" aria-labelledby="tab-sound" hidden>
+        <fieldset class="field">
+          <legend>Click sound</legend>
+          <div class="chips kit-list" id="sound-chips"></div>
+          <p class="hint">Picking a sound plays a short preview while stopped. While playing, the change is heard from the next click.</p>
+        </fieldset>
+        <div><button type="button" class="btn" id="preview-sound">Play preview</button></div>
+        <fieldset class="field"><legend>Accents</legend><div class="chips" id="accent-style-chips"></div></fieldset>
+        <fieldset class="field"><legend>Count-in sound</legend><div class="chips" id="countin-sound-chips"></div></fieldset>
+        <div class="field">
+          <span class="label" id="sub-volume-label">Subdivision volume</span>
+          <div class="volume">
+            <input type="range" id="sub-volume" min="0" max="100" step="1" value="55" aria-labelledby="sub-volume-label">
+            <output id="sub-volume-out" for="sub-volume">55%</output>
+          </div>
+        </div>
       </div>
 
       <div class="pane" role="tabpanel" id="pane-look" aria-labelledby="tab-look" hidden>

@@ -163,3 +163,9 @@ device (localStorage) until the persistence layer exists (plan §08).
 footwork than exact 30.0 s stages.
 **JS core:** adds `segmentSpan(i)` / `segmentCount` (not yet in Swift; the native
 app will need the same when Practice is ported).
+
+## D-021 · Synthesized click kits now, samples in M3 (2026-11-26)
+Eight synthesized kits with level-specific voices, a sticks count-in, accent
+style and a separate subdivision volume, plus a Sound tab with previews. Chosen
+over recordings for now: no licensing, no download, deterministic and testable.
+Owner auditions and picks; recorded percussion and groove layers stay in M3.

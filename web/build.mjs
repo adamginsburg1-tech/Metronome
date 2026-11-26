@@ -13,6 +13,7 @@ const css = read("src/styles.css");
 const body = read("src/body.html");
 const timing = read("src/timing.js");
 const nosleep = read("src/vendor/nosleep-media.js");
+const sounds = read("src/sounds.js");
 const app = read("src/app.js");
 const TITLE = "POCKET Web Test";
 
@@ -32,6 +33,9 @@ ${nosleep}
 </script>
 <script>
 ${timing}
+</script>
+<script>
+${sounds}
 </script>
 <script>
 ${app}
@@ -67,6 +71,9 @@ ${nosleep}
 </script>
 <script>
 ${timing}
+</script>
+<script>
+${sounds}
 </script>
 <script>
 ${app}

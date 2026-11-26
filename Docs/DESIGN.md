@@ -66,3 +66,31 @@ and layer panels belong to later features (Library, Groove) and are not built ye
 What to judge (plan): the same Quick Click flow in each; night readability and
 density for B; full-screen use for C. Record the verdict in the test checklist
 ("4 · Design concepts").
+
+## Sounds (`web/src/sounds.js`)
+
+All click sounds are synthesized from recipes (tones, square waves and filtered
+noise with exponential decays), rendered once per sample rate, deterministic,
+and tested in Node. No recordings, so no licensing questions. Sampled
+percussion and groove layers remain milestone M3.
+
+| Kit | Character | Recipe in brief |
+|---|---|---|
+| Wood block (default) | Warm, hollow | 820 Hz + 2.11 kHz modes, short bandpassed noise strike |
+| Tick | Mechanical metronome | Bandpassed noise at 3.8 kHz, 1.5 kHz body |
+| Clave | Bright, cutting | 2.45 kHz mode, 45 ms decay |
+| Rim | Cross-stick | Bandpassed noise 1.9 kHz + 470 Hz / 1.65 kHz body |
+| Cowbell | Two-tone, sustains | Square 540 + 800 Hz through a 900 Hz bandpass |
+| Hi-hat | Closed, sits back | Noise above 7 kHz, 20 ms |
+| Beep | Pure tone | 1 kHz sine; accent a fifth up |
+| Digital | Short, precise | 2 kHz square, 4 ms |
+
+- **Levels:** downbeat 0.90, group 0.76, normal 0.62 peak; subdivisions render
+  at 0.62 and go through their own **subdivision volume** (default 55%).
+- **Accents:** "Pitch and volume" (default) raises the downbeat 4 semitones and
+  group accents 2; "Volume only" keeps one pitch.
+- **Count-in:** two **sticks** clicked together (drummer's count-off) by default,
+  so it is never mistaken for bar 1; or "Same kit, lower".
+- **Settings → Sound** lists the kits; picking one while stopped plays a preview
+  (stick, then a bar of eighths). While playing, a change is heard from the next click.
+- `node web/tools/render-kit-preview.js out.wav` renders every kit to a WAV for auditioning.

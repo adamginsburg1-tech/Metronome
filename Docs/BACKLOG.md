@@ -46,6 +46,12 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☐ **Owner:** try A/B/C at the stand, day and night; pick one
 - ☐ Carry the chosen concept into the Practice screens
 
+## Sounds
+- ☑ Eight synthesized click kits, sticks count-in, accent style, subdivision
+  volume, Sound tab with previews (D-021)
+- ☐ **Owner:** audition the kits (preview WAV or Settings → Sound); say which to keep or tune
+- ☐ M3: recorded/licensed percussion samples, mixer, groove layers
+
 ## M2 — Practice (started early in the web test)
 - ☑ Interval ladder: setup, live stages, repeat / step down, effort and clean
   rating, summary, saved sessions on device

@@ -147,3 +147,16 @@ errors. Screenshots reviewed at 1180×820 and 390×844.
   working tempo proposed 200; Discard needed two taps; Pause → Resume restarted
   the stage with a count-in.
 - No console errors; no overflow at 390 px. Not yet run with real playing.
+
+## 2026-11-26 · Click kits (Node + headless Chromium)
+
+- **Node:** 22 tests, 0 failures. Sounds (6 new): every kit × voice × option at
+  44.1 and 48 kHz is finite, 20–500 ms long, starts without a jump, ends at
+  silence and hits its target peak; accents louder than normal; "pitch" accents
+  raise pitch and "level" keeps it; count-in differs from bar 1; rendering is
+  deterministic.
+- **Browser:** Sound tab lists 8 kits (default Wood block / Pitch and volume /
+  Sticks); every kit previewed; accent style and count-in sound switch; kit
+  swap and subdivision volume change while playing with 0 missed clicks; LCD
+  shows the kit name; no console errors; no overflow at 390 px.
+- **Listening:** a WAV of all kits was rendered for the owner. Not yet judged by ear.

@@ -56,7 +56,8 @@
     { id: "d", label: "D · Console", name: "Hardware console (owner reference)", note: "Green display, coloured keys, knob, status strip" },
   ];
   const TEMPO_CHANGE = [{ id: "beat", label: "Next beat" }, { id: "bar", label: "Next bar" }];
-  const SOUNDS = [{ id: "wood", label: "Wood" }, { id: "beep", label: "Beep" }];
+  const SND = window.PocketSounds;
+  const SOUNDS = SND.KITS;
   const CYCLE = [L.downbeat, L.group, L.normal, L.muted];
 
   const CHECKS = [
@@ -107,6 +108,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, sound: settings.sound, volume: settings.volume,
+        accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
         workspace: settings.workspace, routine: routineCfg, sessions, answers, notes: $("notes").value,
       }));
@@ -125,6 +127,9 @@
     // Where a tempo change lands while playing (Docs/UX.md O-1): next beat by default.
     tempoChange: TEMPO_CHANGE.some((t) => t.id === stored.tempoChange) ? stored.tempoChange : "beat",
     sound: SOUNDS.some((s) => s.id === stored.sound) ? stored.sound : "wood",
+    accentStyle: SND.ACCENT_STYLES.some((a) => a.id === stored.accentStyle) ? stored.accentStyle : "pitch",
+    countInSound: SND.COUNT_IN_SOUNDS.some((c) => c.id === stored.countInSound) ? stored.countInSound : "sticks",
+    subVolume: Number.isFinite(stored.subVolume) ? stored.subVolume : 55,
     volume: Number.isFinite(stored.volume) ? stored.volume : 60,
     awake: ["off", "playing", "always"].includes(stored.awake) ? stored.awake : stored.wake === false ? "off" : "always",
     routeStop: stored.routeStop ?? true,
@@ -132,7 +137,7 @@
     playOnSilent: stored.playOnSilent ?? true,
     // Visual concept being compared (plan §04): a Studio, b Workshop, c Stage.
     concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "a",
-    settingsTab: ["click", "look", "ipad", "test"].includes(stored.settingsTab) ? stored.settingsTab : "click",
+    settingsTab: ["click", "sound", "look", "ipad", "test"].includes(stored.settingsTab) ? stored.settingsTab : "click",
     workspace: stored.workspace === "practice" ? "practice" : "click",
   };
   const answers = stored.answers || {};
@@ -225,43 +230,24 @@
   function hideBanner() { $("banner").hidden = true; }
 
   // ---------- sound ----------
+  /** Render every kit's voices for this context (Docs/DESIGN.md › Sounds). */
   function buildBuffers(ctx) {
-    const sr = ctx.sampleRate;
-    let seed = 7;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
-    function synth({ freqs, decay, noise = 0, amp, dur = 0.08 }) {
-      const n = Math.floor(sr * dur);
-      const buf = ctx.createBuffer(1, n, sr);
-      const d = buf.getChannelData(0);
-      const fadeStart = n - Math.floor(sr * 0.003);
-      for (let i = 0; i < n; i++) {
-        const t = i / sr;
-        let v = 0;
-        for (const f of freqs) v += Math.sin(2 * Math.PI * f * t);
-        v /= freqs.length;
-        if (noise) v += noise * rnd() * Math.exp(-t / 0.0015);
-        let env = Math.exp(-t / decay) * Math.min(1, t / 0.0004);
-        if (i > fadeStart) env *= (n - i) / (n - fadeStart);
-        d[i] = amp * v * env;
-      }
-      return buf;
+    const kits = {};
+    for (const kit of SOUNDS) {
+      const voices = SND.buildKit(kit.id, ctx.sampleRate, { accentStyle: settings.accentStyle, countIn: settings.countInSound });
+      const toBuffer = (data) => { const b = ctx.createBuffer(1, data.length, ctx.sampleRate); b.getChannelData(0).set(data); return b; };
+      kits[kit.id] = {
+        [L.downbeat]: toBuffer(voices.downbeat),
+        [L.group]: toBuffer(voices.group),
+        [L.normal]: toBuffer(voices.normal),
+        [L.sub]: toBuffer(voices.sub),
+        countIn: toBuffer(voices.countIn),
+      };
     }
-    return {
-      wood: {
-        [L.downbeat]: synth({ freqs: [1760, 2640], decay: 0.014, noise: 0.45, amp: 0.85 }),
-        [L.group]: synth({ freqs: [1480, 2220], decay: 0.013, noise: 0.4, amp: 0.7 }),
-        [L.normal]: synth({ freqs: [1200, 1800], decay: 0.012, noise: 0.35, amp: 0.55 }),
-        [L.sub]: synth({ freqs: [980], decay: 0.01, noise: 0.25, amp: 0.3 }),
-        countIn: synth({ freqs: [620, 930], decay: 0.035, noise: 0.2, amp: 0.65, dur: 0.12 }),
-      },
-      beep: {
-        [L.downbeat]: synth({ freqs: [1760], decay: 0.03, amp: 0.75 }),
-        [L.group]: synth({ freqs: [1320], decay: 0.028, amp: 0.65 }),
-        [L.normal]: synth({ freqs: [880], decay: 0.025, amp: 0.55 }),
-        [L.sub]: synth({ freqs: [660], decay: 0.02, amp: 0.28 }),
-        countIn: synth({ freqs: [440], decay: 0.05, amp: 0.65, dur: 0.12 }),
-      },
-    };
+    return kits;
+  }
+  function rebuildBuffers() {
+    if (eng.ctx) eng.buffers = buildBuffers(eng.ctx);
   }
 
   function ensureAudio() {
@@ -272,6 +258,10 @@
     eng.master = eng.ctx.createGain();
     eng.master.gain.value = volumeGain(settings.volume);
     eng.master.connect(eng.ctx.destination);
+    // Subdivisions get their own volume, adjustable live.
+    eng.subGain = eng.ctx.createGain();
+    eng.subGain.gain.value = volumeGain(settings.subVolume);
+    eng.subGain.connect(eng.master);
     eng.buffers = buildBuffers(eng.ctx);
     eng.ctx.addEventListener("statechange", onAudioState);
     log(`Audio ready: ${eng.ctx.sampleRate} Hz, base latency ${ms(eng.ctx.baseLatency)}, output latency ${ms(eng.ctx.outputLatency)}`, "info");
@@ -528,7 +518,7 @@
     for (const e of eng.plan.eventsIn(from, to)) {
       const src = ctx.createBufferSource();
       src.buffer = e.role === "countIn" ? sounds.countIn : sounds[e.level];
-      src.connect(eng.master);
+      src.connect(e.role !== "countIn" && e.level === L.sub ? eng.subGain : eng.master);
       src.start(e.time);
       eng.sources.add(src);
       src.onended = () => eng.sources.delete(src);
@@ -895,7 +885,23 @@
       applyConcept();
       log(`Design concept: ${c.label} (${c.name})`);
     });
-    chip("sound-chips", SOUNDS, (s) => s.id === settings.sound, (s) => { settings.sound = s.id; });
+    chip("sound-chips", SOUNDS, (s) => s.id === settings.sound, (s) => {
+      settings.sound = s.id;
+      log(`Sound: ${s.label}`);
+      if (!isRunning()) previewSound();
+    });
+    chip("accent-style-chips", SND.ACCENT_STYLES, (a) => a.id === settings.accentStyle, (a) => {
+      if (a.id === settings.accentStyle) return;
+      settings.accentStyle = a.id;
+      rebuildBuffers();
+      if (!isRunning()) previewSound();
+    });
+    chip("countin-sound-chips", SND.COUNT_IN_SOUNDS, (c) => c.id === settings.countInSound, (c) => {
+      if (c.id === settings.countInSound) return;
+      settings.countInSound = c.id;
+      rebuildBuffers();
+      if (!isRunning()) previewSound();
+    });
     chip("awake-chips", [{ id: "off", label: "Off" }, { id: "playing", label: "While playing" }, { id: "always", label: "Always" }],
       (a) => a.id === settings.awake, (a) => {
         if (a.id === settings.awake) return;
@@ -995,7 +1001,7 @@
     lines.push(`  Tightest lead: ${Number.isFinite(stats.minHeadroom) ? (stats.minHeadroom * 1000).toFixed(1) + " ms" : "n/a"}`);
     lines.push(`  Audio vs system clock: ${stats.driftPpm === null ? "n/a" : stats.driftPpm.toFixed(1) + " ppm"}`);
     lines.push(`  Interruptions: ${stats.interruptions}`);
-    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, ${settings.sound}, volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}, play in silent mode ${settings.playOnSilent}`);
+    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, sound ${settings.sound} (accents: ${settings.accentStyle}, count-in: ${settings.countInSound}, subdivisions ${settings.subVolume}%), volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}, play in silent mode ${settings.playOnSilent}`);
     lines.push("", "Checklist");
     for (const c of CHECKS) for (const r of c.rows) lines.push(`  ${r.label}: ${answers[r.id] || "Not tried"}`);
     lines.push("", "Practice sessions (latest first)");
@@ -1517,7 +1523,7 @@
     const grouping = meter.grouping.some((g) => g > 1) && !meter.compound ? ` (${meter.grouping.join("+")})` : "";
     $("lcd-meter").textContent = `${meter.num}/${meter.den}${grouping} time`;
     const countIn = settings.countInMode === "off" ? "No count-in" : `Count-in ${settings.countInBars} bar${settings.countInBars > 1 ? "s" : ""}`;
-    $("lcd-pattern").textContent = `${subdivisionName(pattern)} · ${settings.sound} · ${countIn}`;
+    $("lcd-pattern").textContent = `${subdivisionName(pattern)} · ${(SOUNDS.find((k) => k.id === settings.sound) || SOUNDS[0]).label} · ${countIn}`;
     const bar = eng.currentBar === null ? null : eng.currentBar + eng.barOffset + 1;
     $("lcd-state").textContent = {
       idle: "Ready at bar 1",
@@ -1537,7 +1543,7 @@
   // ---------- settings sheet ----------
   // Non-modal on purpose: it stops above the transport so Stop always works
   // while it's open (Docs/UX.md principle 4). Esc, Done or the backdrop close it.
-  const TABS = ["click", "look", "ipad", "test"];
+  const TABS = ["click", "sound", "look", "ipad", "test"];
   let lastFocus = null;
   function fitSheet() {
     const h = document.querySelector(".transport").offsetHeight;
@@ -1648,6 +1654,42 @@
       if (e.key === "End") { e.preventDefault(); setBpm(T.TEMPO_MAX); }
     });
   })();
+
+  // ---------- sound preview ----------
+  // One count-in click, then a bar of 4/4 with eighths: strong, sub, normal, sub…
+  // Plays only while stopped, from the tap that picked the sound.
+  let previewSources = [];
+  async function previewSound() {
+    try {
+      setAudioSession();
+      ensureAudio();
+      if (eng.ctx.state !== "running") await eng.ctx.resume();
+      if (eng.ctx.state !== "running" || isRunning()) return;
+      for (const src of previewSources) { try { src.stop(); } catch { /* done */ } }
+      previewSources = [];
+      const kit = eng.buffers[settings.sound];
+      const beat = 0.5; // 120 BPM
+      const t0 = eng.ctx.currentTime + 0.06;
+      const steps = [["countIn", -beat * 1.5]];
+      [L.downbeat, L.sub, L.normal, L.sub, L.normal, L.sub, L.normal, L.sub].forEach((lv, i) => steps.push([lv, i * beat / 2]));
+      for (const [lv, offset] of steps) {
+        const src = eng.ctx.createBufferSource();
+        src.buffer = lv === "countIn" ? kit.countIn : kit[lv];
+        src.connect(lv === L.sub ? eng.subGain : eng.master);
+        src.start(t0 + beat * 1.5 + offset);
+        previewSources.push(src);
+      }
+    } catch (e) { log(`Preview failed: ${e.message}`, "warn"); }
+  }
+  $("preview-sound").addEventListener("click", () => { if (!isRunning()) previewSound(); });
+  $("sub-volume").value = String(settings.subVolume);
+  $("sub-volume-out").textContent = `${settings.subVolume}%`;
+  $("sub-volume").addEventListener("input", (e) => {
+    settings.subVolume = Number(e.target.value);
+    $("sub-volume-out").textContent = `${settings.subVolume}%`;
+    if (eng.subGain) eng.subGain.gain.setTargetAtTime(volumeGain(settings.subVolume), eng.ctx.currentTime, 0.015);
+    saveStore();
+  });
 
   // ---------- boot ----------
   buildDial();
