@@ -189,3 +189,22 @@ errors. Screenshots reviewed at 1180×820 and 390×844.
   every kit previews; Start → running in 32 ms; switching through all 7 recorded
   kits while playing with subdivisions: 43 clicks, 0 missed; no console errors.
 - **Listening:** preview WAV of all 10 kits sent to the owner; not yet judged by ear.
+
+## 2026-11-26 · First iPad run: Chrome (owner)
+
+- **Device:** iPad, iPadOS 26.6.1, Chrome 158 (WebKit), preview build, concept D,
+  recorded Hi-hat, 120 BPM 4/4, no subdivision, 48 kHz.
+- **Timing:** 8 min 02 s, 965 clicks scheduled, **0 missed**. Worst timer gap
+  82 ms against a 150 ms lookahead; tightest lead 109 ms. Audio clock vs system
+  clock −10.4 ppm (normal crystal difference; the audio clock is the reference,
+  so this doesn't affect the click).
+- **Latency reported:** base 2.7 ms, output 11.1 ms.
+- **Keep-awake:** screen stayed on for the whole run. Wake Lock was refused three
+  times on load ("Permission was denied", i.e. before any tap), then granted on
+  the first tap; the silent video ran from load. Status at the end: Wake Lock + video.
+- **Owner verdict:** "8 minutes in Chrome is good enough."
+- **Not yet tried:** interruptions, silent mode, music from another app, the
+  ladder, Safari, offline/home screen, concept verdicts.
+- **Side note:** Chrome reports `audioSession.type` back as "auto" after audio
+  stops, so POCKET sets "playback" again at each Start (seen as repeated log
+  lines). Harmless; silent-mode behaviour still needs the real check.
