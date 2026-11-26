@@ -57,7 +57,10 @@
   ];
   const TEMPO_CHANGE = [{ id: "beat", label: "Next beat" }, { id: "bar", label: "Next bar" }];
   const SND = window.PocketSounds;
-  const SOUNDS = SND.KITS;
+  // Recorded kits (CC0 samples bundled by web/build.mjs) first, then synthesized ones.
+  const SAMPLE_KITS = (window.POCKET_SAMPLE_KITS || []).map((k) => ({ ...k, recorded: true }));
+  const SYNTH_KITS = SND.KITS.map((k) => ({ ...k, recorded: false }));
+  const SOUNDS = SAMPLE_KITS.concat(SYNTH_KITS);
   const CYCLE = [L.downbeat, L.group, L.normal, L.muted];
 
   const CHECKS = [
@@ -230,21 +233,46 @@
   function hideBanner() { $("banner").hidden = true; }
 
   // ---------- sound ----------
-  /** A kit's voices as AudioBuffers, rendered the first time it's used (Docs/DESIGN.md › Sounds). */
+  /**
+   * A kit's voices as arrays of AudioBuffers (several takes per level for
+   * recorded kits, played in rotation), built the first time the kit is used.
+   * See Docs/DESIGN.md › Sounds.
+   */
+  const decodedSamples = {};
   function kitBuffers(id) {
     if (!eng.buffers[id]) {
       const ctx = eng.ctx;
-      const voices = SND.buildKit(id, ctx.sampleRate, { accentStyle: settings.accentStyle, countIn: settings.countInSound });
-      const toBuffer = (data) => { const b = ctx.createBuffer(1, data.length, ctx.sampleRate); b.getChannelData(0).set(data); return b; };
+      const meta = SOUNDS.find((k) => k.id === id) || SOUNDS[0];
+      const opts = { accentStyle: settings.accentStyle, countIn: settings.countInSound };
+      let voices, sr;
+      if (meta.recorded) {
+        if (!decodedSamples[meta.id]) {
+          decodedSamples[meta.id] = Object.fromEntries(Object.entries(meta.levels).map(([lv, takes]) => [lv, takes.map((b64) => SND.decodeWav(SND.fromBase64(b64)))]));
+        }
+        voices = SND.buildSampleKit(decodedSamples[meta.id], opts);
+        sr = voices.sampleRate;
+      } else {
+        const v = SND.buildKit(meta.id, ctx.sampleRate, opts);
+        voices = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, [x]]));
+        sr = ctx.sampleRate;
+      }
+      const toBuffer = (data) => { const b = ctx.createBuffer(1, data.length, sr); b.getChannelData(0).set(data); return b; };
       eng.buffers[id] = {
-        [L.downbeat]: toBuffer(voices.downbeat),
-        [L.group]: toBuffer(voices.group),
-        [L.normal]: toBuffer(voices.normal),
-        [L.sub]: toBuffer(voices.sub),
-        countIn: toBuffer(voices.countIn),
+        [L.downbeat]: voices.downbeat.map(toBuffer),
+        [L.group]: voices.group.map(toBuffer),
+        [L.normal]: voices.normal.map(toBuffer),
+        [L.sub]: voices.sub.map(toBuffer),
+        countIn: voices.countIn.map(toBuffer),
       };
     }
     return eng.buffers[id];
+  }
+  /** Next take for a level, rotating so repeated clicks aren't identical. */
+  const takeCounters = {};
+  function pickTake(kit, key) {
+    const takes = kit[key];
+    takeCounters[key] = ((takeCounters[key] || 0) + 1) % takes.length;
+    return takes[takeCounters[key]];
   }
   function rebuildBuffers() {
     eng.buffers = {};
@@ -520,7 +548,7 @@
     const sounds = kitBuffers(settings.sound);
     for (const e of eng.plan.eventsIn(from, to)) {
       const src = ctx.createBufferSource();
-      src.buffer = e.role === "countIn" ? sounds.countIn : sounds[e.level];
+      src.buffer = pickTake(sounds, e.role === "countIn" ? "countIn" : e.level);
       src.connect(e.role !== "countIn" && e.level === L.sub ? eng.subGain : eng.master);
       src.start(e.time);
       eng.sources.add(src);
@@ -924,11 +952,13 @@
       applyConcept();
       log(`Design concept: ${c.label} (${c.name})`);
     });
-    chip("sound-chips", SOUNDS, (s) => s.id === settings.sound, (s) => {
+    const pickSound = (s) => {
       settings.sound = s.id;
-      log(`Sound: ${s.label}`);
+      log(`Sound: ${s.label}${s.recorded ? " (recorded)" : ""}`);
       if (!isRunning()) previewSound();
-    });
+    };
+    chip("sound-chips", SAMPLE_KITS, (s) => s.id === settings.sound, pickSound);
+    chip("synth-chips", SYNTH_KITS, (s) => s.id === settings.sound, pickSound);
     chip("accent-style-chips", SND.ACCENT_STYLES, (a) => a.id === settings.accentStyle, (a) => {
       if (a.id === settings.accentStyle) return;
       settings.accentStyle = a.id;
@@ -1713,7 +1743,7 @@
       [L.downbeat, L.sub, L.normal, L.sub, L.normal, L.sub, L.normal, L.sub].forEach((lv, i) => steps.push([lv, i * beat / 2]));
       for (const [lv, offset] of steps) {
         const src = eng.ctx.createBufferSource();
-        src.buffer = lv === "countIn" ? kit.countIn : kit[lv];
+        src.buffer = pickTake(kit, lv);
         src.connect(lv === L.sub ? eng.subGain : eng.master);
         src.start(t0 + beat * 1.5 + offset);
         previewSources.push(src);

@@ -174,3 +174,18 @@ errors. Screenshots reviewed at 1180×820 and 390×844.
   their loudness target; accents louder; count-in distinct.
 - **Browser:** kit swap and subdivision volume while playing, 0 missed clicks;
   no console errors. A v2 preview WAV was sent to the owner.
+
+## 2026-11-26 · Sample engine and CC0 starter set
+
+- **Processing:** 38 takes across 7 kits; every attack within 0.45 ms of the
+  file start (tool report); 1.2 MB total.
+- **Node:** 27 tests, 0 failures. New `samples.test.js`: the set is the CC0 VCSL
+  library with the expected 7 kits; every take starts on its attack (< 1 ms),
+  ends at silence, is ≤ 0.5 s; built kits keep peaks ≤ 0.95, accents louder than
+  normal in both accent styles, count-in present for both count-in options;
+  "Louder only" reuses the normal takes.
+- **Browser (headless Chromium):** page 1.6 MB loads in ~0.2 s locally; Sound tab
+  lists 7 recorded + 3 synthesized kits with Wood block (recorded) as default;
+  every kit previews; Start → running in 32 ms; switching through all 7 recorded
+  kits while playing with subdivisions: 43 clicks, 0 missed; no console errors.
+- **Listening:** preview WAV of all 10 kits sent to the owner; not yet judged by ear.

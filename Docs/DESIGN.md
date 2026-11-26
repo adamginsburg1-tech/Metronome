@@ -67,41 +67,39 @@ What to judge (plan): the same Quick Click flow in each; night readability and
 density for B; full-screen use for C. Record the verdict in the test checklist
 ("4 · Design concepts").
 
-## Sounds (`web/src/sounds.js`, v2)
+## Sounds
 
-All click sounds are synthesized from recipes, rendered per sample rate,
-deterministic and tested in Node. No recordings, so no licensing. Sampled
-percussion and groove layers remain milestone M3.
+### Recorded kits (default) — `web/samples`, `buildSampleKit`
+Seven kits from the **Versilian Community Sample Library (CC0)**: Wood block
+(default), Claves, Rim click, Cowbell (muted strokes on subdivisions), Agogo
+(high bell on accents, low on beats), Log drum (high tongue on accents) and a
+closed Hi-hat. Credits and the exact files: `web/samples/CREDITS.md`.
 
-v2 (2026-11-26, after "sounds are not great"):
-- **Band-limited** square and triangle waves (odd harmonics below 0.45 × sample
-  rate). v1's naive squares aliased, which sounds gritty and cheap.
-- **Struck-object envelopes:** a fast decay plus an optional slower ring
-  (cowbell), hold for the beep, and a small pitch drop at the strike (wood,
-  clave, sticks).
-- **Metallic hi-hat** from six squares at the classic 808 cymbal ratios instead
-  of plain noise.
-- **Room:** a few low-passed early reflections give wood, clave, rim, tick and
-  sticks some body.
-- **Loudness, not peak:** each voice is set by RMS over its first 30 ms (with
-  headroom so short spiky sounds still have louder accents); the master volume
-  curve adds the gain back. Kits measure within a factor of 1.6 of each other.
-- Kits are rendered lazily the first time they're used (all eight take ~0.2 s).
+- **Processing** (`web/tools/build-samples.mjs`, run once, output committed):
+  mono, DC removed, **attack within 0.5 ms of the file start** (a late attack
+  would make every click late), tail cut below −60 dB with a fade, loudness
+  matched to a reference, 16-bit 44.1 kHz WAV. 1.2 MB for all seven kits.
+- **Dynamics:** each level uses its own recording strength where the library has
+  one (ff on the downbeat, pp on subdivisions), then is scaled to the level's
+  loudness target. "Louder only" accents reuse the normal takes, scaled up.
+- **Round robin:** levels with several takes rotate through them, so repeated
+  clicks don't sound machine-identical.
+- **Bundling:** `web/build.mjs` inlines the WAVs as base64 (page ≈ 1.6 MB), so
+  the sounds work offline and in the artifact. They're decoded the first time a
+  kit is used.
 
-| Kit | Character | Recipe in brief |
-|---|---|---|
-| Wood block (default) | Warm, hollow | Modes 760 / 1985 / 3120 Hz, pitch drop at strike, noise strike, room |
-| Tick | Mechanical metronome | Two bandpassed noise clicks 1.6 ms apart, 1.8 kHz and 640 Hz body |
-| Clave | Bright, cutting | 2.35 kHz mode (55 ms) with faint 3.6 kHz / 820 Hz partials |
-| Rim | Cross-stick | Triangles 455 / 1667 Hz, bandpassed noise crack |
-| Cowbell | Two-tone, rings | Band-limited squares 540 + 800 Hz through 1 kHz bandpass, fast + slow decay |
-| Hi-hat | Closed, metallic | Six squares at 808 ratios, high-passed at 7.2 kHz, plus air |
-| Beep | Pure tone | 1 kHz sine, held 22 ms; accent a fifth up |
-| Digital | Short, precise | Band-limited 1.8 kHz square, 1.5 ms |
+### Synthesized kits — `web/src/sounds.js`
+Tick (mechanical metronome), Beep (accent a fifth up) and Digital, kept because
+they have no recorded equivalent. Band-limited oscillators, struck-object
+envelopes, a short room, loudness matching (see v2 notes in git history,
+D-022). The earlier synthesized wood/clave/rim/cowbell/hat are replaced by the
+recordings.
 
-- **Levels (RMS):** downbeat 0.16, group 0.13, normal 0.11; subdivisions go
-  through their own **subdivision volume** (default 55%).
-- **Accents:** "Pitch and volume" (default: downbeat +4 semitones, group +2) or
-  "Volume only".
-- **Count-in:** two **sticks** clicked together by default, or "Same kit, lower".
-- `node web/tools/render-kit-preview.js out.wav` renders every kit to a WAV.
+### Shared rules
+- **Levels (RMS over 30 ms):** downbeat 0.16, group 0.13, normal 0.11; peaks
+  capped at 0.95; subdivisions through their own volume (default 55%).
+- **Accents:** "Accent sounds different" (recorded: stronger take / synth: pitch up)
+  or "Louder only".
+- **Count-in:** synthesized **sticks** by default, or "Same kit, lower" (the
+  normal take slowed to 0.8×).
+- `node web/tools/render-kit-preview.js out.wav` renders every kit for auditioning.

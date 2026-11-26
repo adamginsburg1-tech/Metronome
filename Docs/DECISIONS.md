@@ -180,3 +180,13 @@ whichever drops; a refused lock is retried after a tap or a return to the page.
 envelopes, metallic hat, room, loudness matching). If v2 still isn't right,
 next options: tune by ear from the owner's notes, import your own recorded
 sounds, or licensed samples (M3).
+
+## D-023 · Sample engine with a CC0 starter set (owner, 2026-11-26)
+**Decision:** Recorded kits are the default. Source: VCSL (CC0), seven kits,
+processed by a committed tool so onsets, lengths and loudness are consistent.
+Synthesized Tick, Beep and Digital stay; synthesized versions of instruments
+we now have recordings for are removed. Samples are inlined into the page so
+offline use keeps working.
+**Next:** owner auditions; replace or add kits with the owner's own recordings
+through the same tool (`manifest.json` → `build-samples.mjs`); an on-device
+importer can follow.

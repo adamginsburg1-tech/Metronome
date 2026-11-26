@@ -50,7 +50,11 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Eight synthesized click kits, sticks count-in, accent style, subdivision
   volume, Sound tab with previews (D-021)
 - ☐ **Owner:** audition the kits (preview WAV or Settings → Sound); say which to keep or tune
-- ☐ M3: recorded/licensed percussion samples, mixer, groove layers
+- ☑ Sample engine + CC0 starter set: 7 recorded kits from VCSL, round robin,
+  per-level takes, processing tool, credits (D-023)
+- ☐ **Owner:** audition recorded kits; record your own instruments if wanted
+- ☐ On-device importer for your own WAVs
+- ☐ M3: mixer and groove layers (shaker, tambourine, kick/snare/hats) using the same engine
 
 ## M2 — Practice (started early in the web test)
 - ☑ Interval ladder: setup, live stages, repeat / step down, effort and clean

@@ -1,0 +1,338 @@
+{
+  "source": "Versilian Community Sample Library (VCSL), https://github.com/sgossner/VCSL, CC0 1.0",
+  "kits": [
+    {
+      "id": "wood",
+      "label": "Wood block",
+      "note": "Recorded · warm, hollow",
+      "levels": {
+        "downbeat": [
+          {
+            "file": "wood/downbeat-1.wav",
+            "from": "wood_click_ff.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ],
+        "group": [
+          {
+            "file": "wood/group-1.wav",
+            "from": "wood_click_f_rr1.wav",
+            "sr": 44100,
+            "ms": 300
+          },
+          {
+            "file": "wood/group-2.wav",
+            "from": "wood_click_f_rr2.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ],
+        "normal": [
+          {
+            "file": "wood/normal-1.wav",
+            "from": "wood_click_mp.wav",
+            "sr": 44100,
+            "ms": 300
+          },
+          {
+            "file": "wood/normal-2.wav",
+            "from": "wood_click2_mp.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ],
+        "sub": [
+          {
+            "file": "wood/sub-1.wav",
+            "from": "wood_click_pp_rr1.wav",
+            "sr": 44100,
+            "ms": 300
+          },
+          {
+            "file": "wood/sub-2.wav",
+            "from": "wood_click_pp_rr2.wav",
+            "sr": 44100,
+            "ms": 300
+          },
+          {
+            "file": "wood/sub-3.wav",
+            "from": "wood_click_pp_rr3.wav",
+            "sr": 44100,
+            "ms": 293
+          }
+        ]
+      }
+    },
+    {
+      "id": "clave",
+      "label": "Claves",
+      "note": "Recorded · bright, cutting",
+      "levels": {
+        "downbeat": [
+          {
+            "file": "clave/downbeat-1.wav",
+            "from": "Claves1_Hit_v3_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ],
+        "group": [
+          {
+            "file": "clave/group-1.wav",
+            "from": "Claves1_Hit_v3_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ],
+        "normal": [
+          {
+            "file": "clave/normal-1.wav",
+            "from": "Claves1_Hit_v2_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ],
+        "sub": [
+          {
+            "file": "clave/sub-1.wav",
+            "from": "Claves1_Hit_v1_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ]
+      }
+    },
+    {
+      "id": "rim",
+      "label": "Rim click",
+      "note": "Recorded · snare cross-stick",
+      "levels": {
+        "downbeat": [
+          {
+            "file": "rim/downbeat-1.wav",
+            "from": "snare1_click3.wav",
+            "sr": 44100,
+            "ms": 250
+          }
+        ],
+        "group": [
+          {
+            "file": "rim/group-1.wav",
+            "from": "snare1_click2.wav",
+            "sr": 44100,
+            "ms": 250
+          }
+        ],
+        "normal": [
+          {
+            "file": "rim/normal-1.wav",
+            "from": "snare1_click2.wav",
+            "sr": 44100,
+            "ms": 250
+          },
+          {
+            "file": "rim/normal-2.wav",
+            "from": "snare1_click4.wav",
+            "sr": 44100,
+            "ms": 186
+          }
+        ],
+        "sub": [
+          {
+            "file": "rim/sub-1.wav",
+            "from": "snare1_click.wav",
+            "sr": 44100,
+            "ms": 250
+          }
+        ]
+      }
+    },
+    {
+      "id": "cowbell",
+      "label": "Cowbell",
+      "note": "Recorded · muted on subdivisions",
+      "levels": {
+        "downbeat": [
+          {
+            "file": "cowbell/downbeat-1.wav",
+            "from": "Cowbell1_Hit_v4_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 450
+          }
+        ],
+        "group": [
+          {
+            "file": "cowbell/group-1.wav",
+            "from": "Cowbell1_Hit_v3_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 450
+          }
+        ],
+        "normal": [
+          {
+            "file": "cowbell/normal-1.wav",
+            "from": "Cowbell1_Hit_v2_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 450
+          }
+        ],
+        "sub": [
+          {
+            "file": "cowbell/sub-1.wav",
+            "from": "Cowbell1_Muted_v2_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 450
+          },
+          {
+            "file": "cowbell/sub-2.wav",
+            "from": "Cowbell1_Muted_v3_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 450
+          }
+        ]
+      }
+    },
+    {
+      "id": "agogo",
+      "label": "Agogo",
+      "note": "Recorded · high bell on accents, low on beats",
+      "levels": {
+        "downbeat": [
+          {
+            "file": "agogo/downbeat-1.wav",
+            "from": "Agogo_High_v3_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 440
+          }
+        ],
+        "group": [
+          {
+            "file": "agogo/group-1.wav",
+            "from": "Agogo_High_v2_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 450
+          }
+        ],
+        "normal": [
+          {
+            "file": "agogo/normal-1.wav",
+            "from": "Agogo_Low_v2_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 450
+          }
+        ],
+        "sub": [
+          {
+            "file": "agogo/sub-1.wav",
+            "from": "Agogo_Low_v1_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 450
+          }
+        ]
+      }
+    },
+    {
+      "id": "log",
+      "label": "Log drum",
+      "note": "Recorded · high tongue on accents",
+      "levels": {
+        "downbeat": [
+          {
+            "file": "log/downbeat-1.wav",
+            "from": "LogDrumHi_MedM_v3_rr1_Sum.wav",
+            "sr": 44100,
+            "ms": 400
+          }
+        ],
+        "group": [
+          {
+            "file": "log/group-1.wav",
+            "from": "LogDrumHi_MedM_v2_rr1_Sum.wav",
+            "sr": 44100,
+            "ms": 400
+          }
+        ],
+        "normal": [
+          {
+            "file": "log/normal-1.wav",
+            "from": "LogDrumLo_MedM_v2_rr1_Sum.wav",
+            "sr": 44100,
+            "ms": 400
+          }
+        ],
+        "sub": [
+          {
+            "file": "log/sub-1.wav",
+            "from": "LogDrumLo_MedM_v1_rr1_Sum.wav",
+            "sr": 44100,
+            "ms": 400
+          }
+        ]
+      }
+    },
+    {
+      "id": "hat",
+      "label": "Hi-hat",
+      "note": "Recorded · closed",
+      "levels": {
+        "downbeat": [
+          {
+            "file": "hat/downbeat-1.wav",
+            "from": "HiHat_HitC_v4_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 250
+          },
+          {
+            "file": "hat/downbeat-2.wav",
+            "from": "HiHat_HitC_v4_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 250
+          }
+        ],
+        "group": [
+          {
+            "file": "hat/group-1.wav",
+            "from": "HiHat_HitC_v3_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 250
+          },
+          {
+            "file": "hat/group-2.wav",
+            "from": "HiHat_HitC_v3_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 250
+          }
+        ],
+        "normal": [
+          {
+            "file": "hat/normal-1.wav",
+            "from": "HiHat_HitC_v2_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 250
+          },
+          {
+            "file": "hat/normal-2.wav",
+            "from": "HiHat_HitC_v2_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 250
+          }
+        ],
+        "sub": [
+          {
+            "file": "hat/sub-1.wav",
+            "from": "HiHat_HitC_v1_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 250
+          },
+          {
+            "file": "hat/sub-2.wav",
+            "from": "HiHat_HitC_v1_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 250
+          }
+        ]
+      }
+    }
+  ]
+}

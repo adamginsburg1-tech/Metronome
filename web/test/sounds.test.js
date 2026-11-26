@@ -69,7 +69,7 @@ test("rendering is deterministic", () => {
 test("square-wave kits are band-limited (no aliasing above the audible band)", () => {
   // Energy above 18 kHz relative to total, via a crude high-pass difference.
   const sr = 48000;
-  for (const id of ["cowbell", "digital", "rim", "beep"]) {
+  for (const id of ["digital", "beep"]) {
     const x = S.buildKit(id, sr).normal;
     const hp = Float32Array.from(x);
     const c = S.biquad("highpass", 18000, 0.7, sr);

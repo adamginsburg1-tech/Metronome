@@ -42,16 +42,9 @@
     ],
   };
 
+  /** Synthesized kits. Recorded kits (wood block, claves, rim, cowbell, agogo,
+   *  log drum, hi-hat) come from web/samples and are built by buildSampleKit. */
   const KITS = [
-    {
-      id: "wood", label: "Wood block", note: "Warm, hollow",
-      recipe: { dur: 0.13, room: 0.5, layers: [
-        { type: "sine", freq: 760, decay: 0.05, amp: 1, sweep: { from: 1.05, time: 0.004 } },
-        { type: "sine", freq: 1985, decay: 0.019, amp: 0.38 },
-        { type: "sine", freq: 3120, decay: 0.008, amp: 0.15 },
-        { type: "noise", decay: 0.003, amp: 0.4, filter: [{ type: "bandpass", f: 1500, q: 1.2 }] },
-      ] },
-    },
     {
       id: "tick", label: "Tick", note: "Mechanical metronome",
       recipe: { dur: 0.06, room: 0.35, layers: [
@@ -59,39 +52,6 @@
         { type: "noise", decay: 0.0018, amp: 0.55, delay: 0.0016, filter: [{ type: "bandpass", f: 4200, q: 3 }] },
         { type: "sine", freq: 1820, decay: 0.012, amp: 0.45 },
         { type: "sine", freq: 640, decay: 0.009, amp: 0.25 },
-      ] },
-    },
-    {
-      id: "clave", label: "Clave", note: "Bright, cutting",
-      recipe: { dur: 0.14, room: 0.45, layers: [
-        { type: "sine", freq: 2350, decay: 0.055, amp: 1, sweep: { from: 1.025, time: 0.003 } },
-        { type: "sine", freq: 3620, decay: 0.012, amp: 0.12 },
-        { type: "sine", freq: 820, decay: 0.01, amp: 0.12 },
-        { type: "noise", decay: 0.0015, amp: 0.3, filter: [{ type: "bandpass", f: 2400, q: 4 }] },
-      ] },
-    },
-    {
-      id: "rim", label: "Rim", note: "Cross-stick",
-      recipe: { dur: 0.13, room: 0.7, layers: [
-        { type: "tri", freq: 455, decay: 0.022, amp: 0.85, filter: [{ type: "highpass", f: 250, q: 0.7 }] },
-        { type: "tri", freq: 1667, decay: 0.011, amp: 0.55 },
-        { type: "noise", decay: 0.006, amp: 0.6, filter: [{ type: "bandpass", f: 2300, q: 1.1 }] },
-        { type: "noise", decay: 0.0012, amp: 0.35, filter: [{ type: "highpass", f: 5000, q: 0.7 }] },
-      ] },
-    },
-    {
-      id: "cowbell", label: "Cowbell", note: "Two-tone, rings",
-      recipe: { dur: 0.32, room: 0.3, layers: [
-        { type: "square", freq: 540, decay: 0.018, decay2: 0.15, mix2: 0.38, amp: 0.6, filter: [{ type: "bandpass", f: 1000, q: 1.1 }, { type: "lowpass", f: 5000, q: 0.7 }] },
-        { type: "square", freq: 800, decay: 0.018, decay2: 0.15, mix2: 0.38, amp: 0.6, filter: [{ type: "bandpass", f: 1000, q: 1.1 }, { type: "lowpass", f: 5000, q: 0.7 }] },
-        { type: "noise", decay: 0.002, amp: 0.15, filter: [{ type: "highpass", f: 3000, q: 0.7 }] },
-      ] },
-    },
-    {
-      id: "hat", label: "Hi-hat", note: "Closed, metallic",
-      recipe: { dur: 0.1, layers: [
-        { type: "metal", freq: 1, decay: 0.032, amp: 1, attack: 0.0004, filter: [{ type: "highpass", f: 7200, q: 0.7 }, { type: "bandpass", f: 10200, q: 0.9 }] },
-        { type: "noise", decay: 0.014, amp: 0.3, filter: [{ type: "highpass", f: 9000, q: 0.7 }] },
       ] },
     },
     {
@@ -111,8 +71,8 @@
   ];
 
   const ACCENT_STYLES = [
-    { id: "pitch", label: "Pitch and volume" },
-    { id: "level", label: "Volume only" },
+    { id: "pitch", label: "Accent sounds different" },
+    { id: "level", label: "Louder only" },
   ];
   const COUNT_IN_SOUNDS = [
     { id: "sticks", label: "Sticks" },
@@ -246,5 +206,72 @@
     return voices;
   }
 
-  return { KITS, ACCENT_STYLES, COUNT_IN_SOUNDS, LEVEL_RMS, MAX_PEAK, buildKit, render, biquad };
+  // ---------- recorded samples ----------
+  const SAMPLE_REF_RMS = 0.108; // web/tools/build-samples.mjs normalizes every file to this
+
+  /** Decode a 16-bit PCM mono WAV (as written by build-samples.mjs). */
+  function decodeWav(bytes) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let sr = 44100, channels = 1, offset = -1, size = 0;
+    for (let o = 12; o + 8 <= bytes.length;) {
+      const id = String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]);
+      const len = view.getUint32(o + 4, true);
+      if (id === "fmt ") { channels = view.getUint16(o + 10, true); sr = view.getUint32(o + 12, true); }
+      if (id === "data") { offset = o + 8; size = Math.min(len, bytes.length - offset); }
+      o += 8 + len + (len & 1);
+    }
+    if (offset < 0) throw new Error("WAV has no data");
+    const frames = Math.floor(size / (2 * channels));
+    const data = new Float32Array(frames);
+    for (let i = 0; i < frames; i++) {
+      let v = 0;
+      for (let c = 0; c < channels; c++) v += view.getInt16(offset + (i * channels + c) * 2, true) / 32768;
+      data[i] = v / channels;
+    }
+    return { sr, data };
+  }
+
+  function scaled(data, gain) {
+    let pk = 0;
+    for (const v of data) pk = Math.max(pk, Math.abs(v));
+    const g = pk > 0 ? Math.min(gain, MAX_PEAK / pk) : gain;
+    return data.map((v) => v * g);
+  }
+  /** Read a sample at a slower speed (lower pitch), linear interpolation. */
+  function slowed(data, rate) {
+    const n = Math.floor(data.length / rate);
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const p = i * rate, k = Math.floor(p), f = p - k;
+      out[i] = (data[k] || 0) * (1 - f) + (data[k + 1] || 0) * f;
+    }
+    return out;
+  }
+
+  /**
+   * Voices for a recorded kit. `files` maps each level to an array of decoded
+   * samples {sr, data}. Returns { sampleRate, downbeat: [Float32Array…], …, countIn: […] };
+   * several takes per level are played in rotation.
+   * opts.accentStyle "level" uses the normal takes for every level, only louder.
+   */
+  function buildSampleKit(files, opts = {}) {
+    const sr = files.normal[0].sr;
+    const voices = { sampleRate: sr };
+    for (const level of ["downbeat", "group", "normal", "sub"]) {
+      const takes = opts.accentStyle === "level" ? files.normal : files[level];
+      voices[level] = takes.map((t) => scaled(t.data, LEVEL_RMS[level] / SAMPLE_REF_RMS));
+    }
+    voices.countIn = opts.countIn === "kit"
+      ? [scaled(slowed(files.normal[0].data, 0.8), LEVEL_RMS.countIn / SAMPLE_REF_RMS)]
+      : [render(STICKS, sr, 1, LEVEL_RMS.countIn)];
+    return voices;
+  }
+
+  /** Base64 → bytes (browser and Node). */
+  function fromBase64(b64) {
+    if (typeof atob === "function") { const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+    return new Uint8Array(Buffer.from(b64, "base64"));
+  }
+
+  return { KITS, ACCENT_STYLES, COUNT_IN_SOUNDS, LEVEL_RMS, MAX_PEAK, buildKit, buildSampleKit, decodeWav, fromBase64, render, biquad };
 });

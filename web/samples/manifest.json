@@ -1,0 +1,43 @@
+{
+  "source": "Versilian Community Sample Library (VCSL), https://github.com/sgossner/VCSL, CC0 1.0",
+  "kits": [
+    { "id": "wood", "label": "Wood block", "note": "Recorded · warm, hollow", "maxDur": 0.3, "dir": "wood",
+      "levels": {
+        "downbeat": ["wood_click_ff.wav"],
+        "group": ["wood_click_f_rr1.wav", "wood_click_f_rr2.wav"],
+        "normal": ["wood_click_mp.wav", "wood_click2_mp.wav"],
+        "sub": ["wood_click_pp_rr1.wav", "wood_click_pp_rr2.wav", "wood_click_pp_rr3.wav"] } },
+    { "id": "clave", "label": "Claves", "note": "Recorded · bright, cutting", "maxDur": 0.3, "dir": "clave",
+      "levels": {
+        "downbeat": ["Claves1_Hit_v3_rr1_Mid.wav"],
+        "group": ["Claves1_Hit_v3_rr1_Mid.wav"],
+        "normal": ["Claves1_Hit_v2_rr1_Mid.wav"],
+        "sub": ["Claves1_Hit_v1_rr1_Mid.wav"] } },
+    { "id": "rim", "label": "Rim click", "note": "Recorded · snare cross-stick", "maxDur": 0.25, "dir": "rim",
+      "byLoudness": ["snare1_click.wav", "snare1_click2.wav", "snare1_click3.wav", "snare1_click4.wav"] },
+    { "id": "cowbell", "label": "Cowbell", "note": "Recorded · muted on subdivisions", "maxDur": 0.45, "dir": "cowbell",
+      "levels": {
+        "downbeat": ["Cowbell1_Hit_v4_rr1_Mid.wav"],
+        "group": ["Cowbell1_Hit_v3_rr1_Mid.wav"],
+        "normal": ["Cowbell1_Hit_v2_rr1_Mid.wav"],
+        "sub": ["Cowbell1_Muted_v2_rr1_Mid.wav", "Cowbell1_Muted_v3_rr1_Mid.wav"] } },
+    { "id": "agogo", "label": "Agogo", "note": "Recorded · high bell on accents, low on beats", "maxDur": 0.45, "dir": "agogo",
+      "levels": {
+        "downbeat": ["Agogo_High_v3_rr1_Mid.wav"],
+        "group": ["Agogo_High_v2_rr1_Mid.wav"],
+        "normal": ["Agogo_Low_v2_rr1_Mid.wav"],
+        "sub": ["Agogo_Low_v1_rr1_Mid.wav"] } },
+    { "id": "log", "label": "Log drum", "note": "Recorded · high tongue on accents", "maxDur": 0.4, "dir": "log",
+      "levels": {
+        "downbeat": ["LogDrumHi_MedM_v3_rr1_Sum.wav"],
+        "group": ["LogDrumHi_MedM_v2_rr1_Sum.wav"],
+        "normal": ["LogDrumLo_MedM_v2_rr1_Sum.wav"],
+        "sub": ["LogDrumLo_MedM_v1_rr1_Sum.wav"] } },
+    { "id": "hat", "label": "Hi-hat", "note": "Recorded · closed", "maxDur": 0.25, "dir": "hat",
+      "levels": {
+        "downbeat": ["HiHat_HitC_v4_rr1_Mid.wav", "HiHat_HitC_v4_rr2_Mid.wav"],
+        "group": ["HiHat_HitC_v3_rr1_Mid.wav", "HiHat_HitC_v3_rr2_Mid.wav"],
+        "normal": ["HiHat_HitC_v2_rr1_Mid.wav", "HiHat_HitC_v2_rr2_Mid.wav"],
+        "sub": ["HiHat_HitC_v1_rr1_Mid.wav", "HiHat_HitC_v1_rr2_Mid.wav"] } }
+  ]
+}
