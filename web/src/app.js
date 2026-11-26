@@ -230,13 +230,13 @@
   function hideBanner() { $("banner").hidden = true; }
 
   // ---------- sound ----------
-  /** Render every kit's voices for this context (Docs/DESIGN.md › Sounds). */
-  function buildBuffers(ctx) {
-    const kits = {};
-    for (const kit of SOUNDS) {
-      const voices = SND.buildKit(kit.id, ctx.sampleRate, { accentStyle: settings.accentStyle, countIn: settings.countInSound });
+  /** A kit's voices as AudioBuffers, rendered the first time it's used (Docs/DESIGN.md › Sounds). */
+  function kitBuffers(id) {
+    if (!eng.buffers[id]) {
+      const ctx = eng.ctx;
+      const voices = SND.buildKit(id, ctx.sampleRate, { accentStyle: settings.accentStyle, countIn: settings.countInSound });
       const toBuffer = (data) => { const b = ctx.createBuffer(1, data.length, ctx.sampleRate); b.getChannelData(0).set(data); return b; };
-      kits[kit.id] = {
+      eng.buffers[id] = {
         [L.downbeat]: toBuffer(voices.downbeat),
         [L.group]: toBuffer(voices.group),
         [L.normal]: toBuffer(voices.normal),
@@ -244,10 +244,11 @@
         countIn: toBuffer(voices.countIn),
       };
     }
-    return kits;
+    return eng.buffers[id];
   }
   function rebuildBuffers() {
-    if (eng.ctx) eng.buffers = buildBuffers(eng.ctx);
+    eng.buffers = {};
+    if (eng.ctx) kitBuffers(settings.sound);
   }
 
   function ensureAudio() {
@@ -260,13 +261,15 @@
     eng.master.connect(eng.ctx.destination);
     // Subdivisions get their own volume, adjustable live.
     eng.subGain = eng.ctx.createGain();
-    eng.subGain.gain.value = volumeGain(settings.subVolume);
+    eng.subGain.gain.value = Math.pow(settings.subVolume / 100, 2);
     eng.subGain.connect(eng.master);
-    eng.buffers = buildBuffers(eng.ctx);
+    eng.buffers = {};
+    kitBuffers(settings.sound);
     eng.ctx.addEventListener("statechange", onAudioState);
     log(`Audio ready: ${eng.ctx.sampleRate} Hz, base latency ${ms(eng.ctx.baseLatency)}, output latency ${ms(eng.ctx.outputLatency)}`, "info");
   }
-  const volumeGain = (pct) => Math.pow(pct / 100, 2);
+  // Voices are normalized with headroom (sounds.js), so the master curve adds gain back.
+  const volumeGain = (pct) => Math.pow(pct / 100, 2) * 1.8;
   const ms = (s) => (typeof s === "number" && Number.isFinite(s) ? `${(s * 1000).toFixed(1)} ms` : "n/a");
 
   // ---------- playing through silent mode ----------
@@ -514,7 +517,7 @@
     }
     const to = now + LOOKAHEAD;
     if (to <= from) return;
-    const sounds = eng.buffers[settings.sound];
+    const sounds = kitBuffers(settings.sound);
     for (const e of eng.plan.eventsIn(from, to)) {
       const src = ctx.createBufferSource();
       src.buffer = e.role === "countIn" ? sounds.countIn : sounds[e.level];
@@ -624,43 +627,68 @@
   // video (the NoSleep technique) keeps iPadOS from dimming and auto-locking.
   // Either way it only works while this page is in front: a web page cannot
   // unlock the iPad or stop the side button from locking it.
-  const awakeState = { method: "off", video: null, wantTap: false, busy: false, again: false };
+  const awakeState = { method: "off", video: null, wantTap: false, busy: false, again: false, lockRefused: false };
   function wantAwake() {
     // Paused counts as playing: you're mid-practice.
     const running = isRunning() || eng.status === "paused";
     return !document.hidden && (settings.awake === "always" || (settings.awake === "playing" && running));
   }
+  // On iPad every browser is WebKit, and Chrome there can report a wake lock
+  // that doesn't actually hold the screen (owner, 2026-11-26). So on WebKit both
+  // methods run together, and a watchdog restarts whichever one drops.
+  const AWAKE_BOTH = BROWSER.engine === "WebKit";
   async function updateAwake() {
     if (awakeState.busy) { awakeState.again = true; return; }
     awakeState.busy = true;
     awakeState.again = false;
     try {
       if (!wantAwake()) { releaseAwake(); return; }
-      if (eng.wakeLock || (awakeState.video && !awakeState.video.paused)) return;
-      if ("wakeLock" in navigator) {
+      if ("wakeLock" in navigator && !eng.wakeLock && !awakeState.lockRefused) {
         try {
           const lock = await navigator.wakeLock.request("screen");
           eng.wakeLock = lock;
           lock.addEventListener("release", () => {
             if (eng.wakeLock === lock) eng.wakeLock = null;
             log("Screen wake lock released");
-            setAwakeMethod("off");
+            refreshAwakeMethod();
             if (wantAwake()) setTimeout(updateAwake, 250);
           });
-          setAwakeMethod("wakeLock");
-          log("Screen will stay awake (Wake Lock)", "info");
-          return;
+          log("Wake Lock granted", "info");
         } catch (e) {
-          log(`Wake Lock refused (${e.message}); trying the silent video`, "warn");
+          awakeState.lockRefused = true;
+          log(`Wake Lock refused (${e.message})`, "warn");
         }
       }
-      await startAwakeVideo();
+      const needVideo = AWAKE_BOTH || !eng.wakeLock;
+      const videoOn = awakeState.video && !awakeState.video.paused;
+      if (needVideo && !videoOn) await startAwakeVideo();
+      if (!needVideo && videoOn) awakeState.video.pause();
     } finally {
       awakeState.busy = false;
-      renderAwake();
+      refreshAwakeMethod();
       if (awakeState.again) updateAwake();
     }
   }
+  function refreshAwakeMethod() {
+    const lock = !!eng.wakeLock;
+    const video = !!(awakeState.video && !awakeState.video.paused);
+    let m = "off";
+    if (lock && video) m = "both";
+    else if (lock) m = "wakeLock";
+    else if (video) m = "video";
+    else if (wantAwake()) m = awakeState.wantTap ? "needsTap" : (("wakeLock" in navigator) || window.POCKET_NOSLEEP_MEDIA) ? "needsTap" : "unavailable";
+    setAwakeMethod(m);
+  }
+  // Watchdog: every 5 s, put back anything the system took away.
+  setInterval(() => {
+    if (!wantAwake() || awakeState.busy) return;
+    const videoDown = (AWAKE_BOTH || !eng.wakeLock) && awakeState.video && awakeState.video.paused && !awakeState.wantTap;
+    const lockDown = "wakeLock" in navigator && !eng.wakeLock && !awakeState.lockRefused;
+    if (videoDown || lockDown) {
+      if (videoDown) log("Keep-awake video had stopped; restarting it", "warn");
+      updateAwake();
+    }
+  }, 5000);
   async function startAwakeVideo() {
     const media = window.POCKET_NOSLEEP_MEDIA;
     if (!media) { setAwakeMethod("unavailable"); return; }
@@ -680,18 +708,18 @@
       }
       // Loop by seeking: a plain loop attribute is unreliable for this on iOS.
       v.addEventListener("timeupdate", () => { if (v.currentTime > 0.5) v.currentTime = Math.random() * 0.4; });
+      // If iPadOS pauses it, try again straight away (a tap may be needed).
+      v.addEventListener("pause", () => { if (wantAwake() && !awakeState.busy) setTimeout(updateAwake, 300); });
       document.body.append(v);
       awakeState.video = v;
     }
     try {
       await awakeState.video.play();
       awakeState.wantTap = false;
-      setAwakeMethod("video");
-      log("Screen will stay awake (silent video)", "info");
+      log("Keep-awake video playing", "info");
     } catch (e) {
       // Needs a tap first; the next tap anywhere retries.
       awakeState.wantTap = true;
-      setAwakeMethod("needsTap");
     }
   }
   function releaseAwake() {
@@ -705,6 +733,7 @@
     const el = document.getElementById("awake-status");
     if (!el) return;
     const text = {
+      both: "Screen is staying awake (Wake Lock + silent video).",
       wakeLock: "Screen is staying awake (Wake Lock).",
       video: "Screen is staying awake (silent video).",
       needsTap: "Tap anywhere to keep the screen awake.",
@@ -716,7 +745,17 @@
     el.textContent = text;
     el.dataset.state = awakeState.method;
   }
-  document.addEventListener("pointerdown", () => { if (awakeState.wantTap || (wantAwake() && awakeState.method !== "wakeLock" && awakeState.method !== "video")) updateAwake(); }, true);
+  document.addEventListener("pointerdown", () => {
+    if (!wantAwake()) return;
+    const wantVideo = AWAKE_BOTH || !eng.wakeLock;
+    const videoOn = awakeState.video && !awakeState.video.paused;
+    if (awakeState.wantTap || (wantVideo && !videoOn) || (!eng.wakeLock && awakeState.lockRefused)) {
+      awakeState.lockRefused = false;
+      awakeState.wantTap = false;
+      updateAwake();
+    }
+  }, true);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) awakeState.lockRefused = false; });
 
   // ---------- visual loop ----------
   function frame() {
@@ -927,7 +966,7 @@
       "Audio session": navigator.audioSession ? navigator.audioSession.type : "not supported",
       "Plays in silent mode": silentModeStatus(),
       "Screen wake lock": "wakeLock" in navigator ? "supported" : "not supported",
-      "Keeping screen awake": { wakeLock: "yes (Wake Lock)", video: "yes (silent video)", needsTap: "needs a tap", unavailable: "not possible", off: "no" }[awakeState.method],
+      "Keeping screen awake": { both: "yes (Wake Lock + video)", wakeLock: "yes (Wake Lock)", video: "yes (silent video)", needsTap: "needs a tap", unavailable: "not possible", off: "no" }[awakeState.method],
     };
   }
   function renderMetrics() {
@@ -1667,7 +1706,7 @@
       if (eng.ctx.state !== "running" || isRunning()) return;
       for (const src of previewSources) { try { src.stop(); } catch { /* done */ } }
       previewSources = [];
-      const kit = eng.buffers[settings.sound];
+      const kit = kitBuffers(settings.sound);
       const beat = 0.5; // 120 BPM
       const t0 = eng.ctx.currentTime + 0.06;
       const steps = [["countIn", -beat * 1.5]];
@@ -1687,7 +1726,7 @@
   $("sub-volume").addEventListener("input", (e) => {
     settings.subVolume = Number(e.target.value);
     $("sub-volume-out").textContent = `${settings.subVolume}%`;
-    if (eng.subGain) eng.subGain.gain.setTargetAtTime(volumeGain(settings.subVolume), eng.ctx.currentTime, 0.015);
+    if (eng.subGain) eng.subGain.gain.setTargetAtTime(Math.pow(settings.subVolume / 100, 2), eng.ctx.currentTime, 0.015);
     saveStore();
   });
 

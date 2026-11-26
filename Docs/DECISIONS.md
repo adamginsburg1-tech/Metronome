@@ -169,3 +169,14 @@ Eight synthesized kits with level-specific voices, a sticks count-in, accent
 style and a separate subdivision volume, plus a Sound tab with previews. Chosen
 over recordings for now: no licensing, no download, deterministic and testable.
 Owner auditions and picks; recorded percussion and groove layers stay in M3.
+
+## D-022 · Keep-awake runs both methods on iPad; sounds v2 (owner feedback, 2026-11-26)
+**Screen slept in Chrome on iPad.** Chrome there is WebKit and can report a wake
+lock that doesn't hold. On WebKit the Wake Lock and the silent inline video now
+run together; the video sits on screen (4 px, nearly transparent) so iPadOS
+doesn't pause it as invisible; a watchdog (5 s) and a pause listener restart
+whichever drops; a refused lock is retried after a tap or a return to the page.
+**Sounds not great.** Rebuilt the synthesis (band-limited waves, struck-object
+envelopes, metallic hat, room, loudness matching). If v2 still isn't right,
+next options: tune by ear from the owner's notes, import your own recorded
+sounds, or licensed samples (M3).

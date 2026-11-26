@@ -160,3 +160,17 @@ errors. Screenshots reviewed at 1180×820 and 390×844.
   swap and subdivision volume change while playing with 0 missed clicks; LCD
   shows the kit name; no console errors; no overflow at 390 px.
 - **Listening:** a WAV of all kits was rendered for the owner. Not yet judged by ear.
+
+## 2026-11-26 · Owner feedback fixes: Chrome keep-awake, sounds v2
+
+- **Owner report (iPad, Chrome):** screen went to sleep; sounds "not great".
+- **Keep-awake (headless Chromium posing as Chrome on iPad):** with Wake Lock
+  granted, status "Wake Lock + silent video"; with it refused, "silent video";
+  video measured 4×4 px on screen; pausing the video on purpose was recovered
+  automatically; no console errors. **Needs confirming on the iPad.**
+- **Sounds v2 (Node):** 24 tests, 0 failures. New: kits within 1.6× loudness
+  of each other; cowbell, digital, rim and beep keep < 2% energy above 18 kHz
+  (no aliasing). All voices finite, click-free, under the 0.95 peak cap, on
+  their loudness target; accents louder; count-in distinct.
+- **Browser:** kit swap and subdivision volume while playing, 0 missed clicks;
+  no console errors. A v2 preview WAV was sent to the owner.

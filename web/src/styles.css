@@ -259,7 +259,9 @@ button { cursor: pointer; }
 .awake-status { margin: 0; font-size: 13px; color: var(--muted); }
 .awake-status[data-state="wakeLock"], .awake-status[data-state="video"] { color: var(--active); }
 .awake-status[data-state="needsTap"], .awake-status[data-state="unavailable"] { color: var(--accent); }
-.awake-video { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; left: 0; bottom: 0; }
+/* iPadOS may pause a muted video it thinks is invisible, which would let the
+   screen sleep; keep it tiny but technically on screen. */
+.awake-video { position: fixed; z-index: 9; width: 4px; height: 4px; opacity: 0.02; pointer-events: none; left: 2px; bottom: 2px; }
 .toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .toggle input { width: 22px; height: 22px; accent-color: var(--accent); }
 
