@@ -50,3 +50,38 @@ test("built kits: peaks capped, accents louder, count-in present, both accent st
     assert.equal(level.downbeat.length, files.normal.length);
   }
 });
+
+// Brightness (spectral centroid, first 40 ms) of one take.
+function centroid(x, sr) {
+  const n = Math.min(x.length, Math.round(sr * 0.04));
+  let num = 0, den = 0;
+  for (let f = 100; f < 12000; f += 100) {
+    let re = 0, im = 0;
+    for (let i = 0; i < n; i++) {
+      const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / n), a = (2 * Math.PI * f * i) / sr;
+      re += x[i] * w * Math.cos(a); im -= x[i] * w * Math.sin(a);
+    }
+    const mag = Math.hypot(re, im);
+    num += f * mag; den += mag;
+  }
+  return num / den;
+}
+
+test("takes rotated within a level match in brightness (no odd one out)", () => {
+  // Owner heard accents on normal beats: the wood block rotated two different blocks.
+  for (const kit of kits) {
+    for (const [level, takes] of Object.entries(load(kit))) {
+      if (takes.length < 2) continue;
+      const c = takes.map((t) => centroid(t.data, t.sr));
+      assert.ok(Math.max(...c) / Math.min(...c) < 1.4, `${kit.id}/${level}: ${c.map((v) => Math.round(v)).join(" vs ")} Hz`);
+    }
+  }
+});
+
+test("normal beats are not brighter than the downbeat in single-instrument kits", () => {
+  for (const kit of kits.filter((k) => !["agogo", "log", "cowbell"].includes(k.id))) {
+    const f = load(kit);
+    const down = centroid(f.downbeat[0].data, f.downbeat[0].sr);
+    for (const t of f.normal) assert.ok(centroid(t.data, t.sr) < down * 1.15, `${kit.id}: a normal take is brighter than the downbeat`);
+  }
+});

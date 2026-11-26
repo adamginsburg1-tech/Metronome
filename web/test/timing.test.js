@@ -187,3 +187,24 @@ test("segment spans tile the timeline for a practice ladder", () => {
   assert.equal(plan.eventsIn(spans[3].start, spans[3].end).every((e) => e.role === "countIn"), true);
   assert.equal(plan.segmentSpan(9), null);
 });
+
+test("'step' boundary is the very next grid point", () => {
+  const plan = quarterPlan(120, { pattern: { subdivision: 2 } });
+  assert.deepEqual(plan.firstBoundaryAtOrAfter(0.3, "step"), { bar: 0, grid: 2 });
+  assert.deepEqual(plan.firstBoundaryAtOrAfter(0.26, "step"), { bar: 0, grid: 2 });
+  assert.deepEqual(plan.firstBoundaryAtOrAfter(0.2, "step"), { bar: 0, grid: 1 });
+  const changed = plan.changingTempoAt(T.makeTempo(60), plan.firstBoundaryAtOrAfter(0.2, "step"));
+  assert.deepEqual(changed.eventsIn(0, 0.25), plan.eventsIn(0, 0.25));
+  assert.ok(Math.abs(changed.eventsIn(0.25, 2)[1].time - 0.75) < 1e-9); // from 0.25 s, eighths 0.5 s apart
+});
+
+test("accents can change mid-bar; meter or subdivision cannot", () => {
+  const meter = T.makeMeter(4, 4);
+  const plan = quarterPlan(120);
+  const accented = T.makePattern({ meter, accents: [4, 0, 3, 2] });
+  const changed = plan.changingAt({ bar: 0, grid: 1 }, (s) => ({ ...s, pattern: accented }));
+  assert.deepEqual(changed.eventsIn(0, 2 - 1e-9).map((e) => [e.unit, e.level]), [[0, 4], [2, 3], [3, 2]]);
+  assert.deepEqual(changed.eventsIn(2, 4 - 1e-9).map((e) => e.level), [4, 3, 2]);
+  assert.throws(() => plan.changingAt({ bar: 0, grid: 1 }, (s) => ({ ...s, pattern: T.makePattern({ meter, subdivision: 2 }) })));
+  assert.throws(() => plan.changingAt({ bar: 0, grid: 1 }, (s) => ({ ...s, pattern: T.makePattern({ meter: T.makeMeter(3, 4) }) })));
+});

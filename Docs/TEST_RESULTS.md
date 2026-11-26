@@ -215,3 +215,17 @@ errors. Screenshots reviewed at 1180×820 and 390×844.
 - Browser: Chrome on iPad (same session as the steady run above). Uses the
   audio-session setting plus the inaudible looping track (D-016).
 - Still open: whether music from another app keeps playing alongside POCKET.
+
+## 2026-11-26 · Owner feedback: wrong accents on wood block; changes should be immediate
+
+- **Diagnosis (measured):** wood block normal takes 1832 Hz vs 4130 Hz brightness,
+  pitch 1375 vs 2870 Hz (two different blocks rotating). Log drum "Hi" 155 Hz,
+  "Lo" 185 Hz (accents were the lower note).
+- **Node:** 31 tests, 0 failures. New: takes within a level match in brightness;
+  normal takes not brighter than the downbeat; "step" boundary is the next grid
+  point; accents can change mid-bar, meter/subdivision cannot.
+- **Swift:** 35 tests, 0 failures (new `ImmediateChangeTests`).
+- **Browser:** stored "beat" migrated to "Immediately"; +5 at 60 BPM ÷4 showed
+  "Now 65 BPM" and landed on the next unscheduled sixteenth (step 7), not the next
+  beat; an accent tap updated the beat row at once (no preview) and landed on the
+  next sixteenth; a meter change still previewed and landed on bar 2; no errors.

@@ -34,12 +34,6 @@
             "from": "wood_click_mp.wav",
             "sr": 44100,
             "ms": 300
-          },
-          {
-            "file": "wood/normal-2.wav",
-            "from": "wood_click2_mp.wav",
-            "sr": 44100,
-            "ms": 300
           }
         ],
         "sub": [
@@ -235,12 +229,12 @@
     {
       "id": "log",
       "label": "Log drum",
-      "note": "Recorded · high tongue on accents",
+      "note": "Recorded · higher tongue on accents",
       "levels": {
         "downbeat": [
           {
             "file": "log/downbeat-1.wav",
-            "from": "LogDrumHi_MedM_v3_rr1_Sum.wav",
+            "from": "LogDrumLo_MedM_v2_rr1_Sum.wav",
             "sr": 44100,
             "ms": 400
           }
@@ -248,7 +242,7 @@
         "group": [
           {
             "file": "log/group-1.wav",
-            "from": "LogDrumHi_MedM_v2_rr1_Sum.wav",
+            "from": "LogDrumLo_MedM_v1_rr1_Sum.wav",
             "sr": 44100,
             "ms": 400
           }
@@ -256,7 +250,7 @@
         "normal": [
           {
             "file": "log/normal-1.wav",
-            "from": "LogDrumLo_MedM_v2_rr1_Sum.wav",
+            "from": "LogDrumHi_MedM_v3_rr1_Sum.wav",
             "sr": 44100,
             "ms": 400
           }
@@ -264,7 +258,7 @@
         "sub": [
           {
             "file": "log/sub-1.wav",
-            "from": "LogDrumLo_MedM_v1_rr1_Sum.wav",
+            "from": "LogDrumHi_MedM_v2_rr1_Sum.wav",
             "sr": 44100,
             "ms": 400
           }

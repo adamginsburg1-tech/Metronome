@@ -67,3 +67,26 @@ final class BeatChangeTests: XCTestCase {
         XCTAssertEqual(Set(reference.map(\.frame)).count, reference.count)
     }
 }
+
+/// Immediate changes (owner, 2026-11-26): tempo on the next click, accents mid-bar.
+final class ImmediateChangeTests: XCTestCase {
+    func testStepBoundaryIsTheNextGridPoint() throws {
+        // 120 BPM eighths at 48 kHz: 12 000 frames apart.
+        let plan = try PlaybackPlan.click(pattern: ClickPattern(meter: .fourFour, subdivision: 2), tempo: Tempo(bpm: 120), sampleRate: 48_000)
+        XCTAssertEqual(plan.firstBoundary(atOrAfter: 9_600, unit: .step), BarPosition(bar: 0, grid: 1))
+        XCTAssertEqual(plan.firstBoundary(atOrAfter: 12_001, unit: .step), BarPosition(bar: 0, grid: 2))
+        let changed = try plan.changingTempo(to: Tempo(bpm: 60), at: BarPosition(bar: 0, grid: 1))
+        XCTAssertEqual(changed.events(in: 0..<12_000), plan.events(in: 0..<12_000))
+        XCTAssertEqual(changed.events(in: 12_000..<60_000).map(\.frame), [12_000, 36_000])
+    }
+
+    func testAccentsCanChangeMidBarButNotTheGrid() throws {
+        let plan = try PlaybackPlan.click(pattern: ClickPattern(meter: .fourFour), tempo: Tempo(bpm: 120), sampleRate: 48_000)
+        let accented = try ClickPattern(meter: .fourFour, accents: [.downbeat, .muted, .group, .normal])
+        let changed = try plan.changing(at: BarPosition(bar: 0, grid: 1)) { $0.pattern = accented }
+        XCTAssertEqual(changed.events(in: 0..<96_000).map(\.level), [.downbeat, .group, .normal])
+        XCTAssertEqual(changed.events(in: 96_000..<192_000).map(\.level), [.downbeat, .group, .normal])
+        let eighths = try ClickPattern(meter: .fourFour, subdivision: 2)
+        XCTAssertThrowsError(try plan.changing(at: BarPosition(bar: 0, grid: 1)) { $0.pattern = eighths })
+    }
+}

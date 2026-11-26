@@ -41,7 +41,10 @@ public struct BarPosition: Sendable, Hashable, CustomStringConvertible {
 
 /// Where a change made while playing takes effect.
 public enum ChangeBoundary: String, Sendable, Hashable {
-    /// Next beat of the tempo's beat unit (default for tempo changes).
+    /// The very next grid point: the change lands immediately (default for tempo
+    /// and accent changes).
+    case step
+    /// Next beat of the tempo's beat unit.
     case beat
     /// Next bar line (always used for meter, subdivision and accent changes).
     case bar
@@ -71,6 +74,11 @@ public struct ClickEvent: Sendable, Hashable, CustomStringConvertible {
 }
 
 extension ClickPattern {
+    /// Same meter and subdivision (accents may differ): the bar's grid is unchanged.
+    public func hasSameGrid(as other: ClickPattern) -> Bool {
+        meter.numerator == other.meter.numerator && meter.denominator == other.meter.denominator && subdivision == other.subdivision
+    }
+
     /// Grid steps in a bar that fall on a beat of `beatUnit` (always includes 0).
     public func beatGrids(beatUnit: NoteValue) -> [Int] {
         (0..<meter.numerator).compactMap { unit in
@@ -133,8 +141,9 @@ public struct PlaybackPlan: Sendable {
             if events == nil && index != segments.count - 1 {
                 throw TimingError.invalidPlan("only the last segment may be open-ended")
             }
-            if grid != 0 && input.pattern != previousPattern {
-                throw TimingError.invalidPlan("segment \(index) changes the pattern mid-bar")
+            // Mid-bar only the accents may change; meter and subdivision define the bar's grid.
+            if grid != 0, let previous = previousPattern, !input.pattern.hasSameGrid(as: previous) {
+                throw TimingError.invalidPlan("segment \(index) changes meter or subdivision mid-bar")
             }
 
             let segment = PlaybackSegment(pattern: input.pattern, tempo: input.tempo, events: events, role: input.role)
@@ -233,12 +242,16 @@ public struct PlaybackPlan: Sendable {
         for item in resolved {
             let pattern = item.segment.pattern
             let perBar = Int64(pattern.eventsPerBar)
-            let allowed = Set(unit == .beat ? pattern.beatGrids(beatUnit: item.segment.tempo.beatUnit) : [0])
+            let allowed: Set<Int>? = switch unit {
+            case .step: nil
+            case .beat: Set(pattern.beatGrids(beatUnit: item.segment.tempo.beatUnit))
+            case .bar: [0]
+            }
             var k = item.firstEvent(atOrAfter: frame)
             while item.eventCount.map({ k < $0 }) ?? true {
                 let g = Int64(item.startGrid) + k
                 let gridIndex = Int(g % perBar)
-                if allowed.contains(gridIndex) {
+                if allowed?.contains(gridIndex) ?? true {
                     return BarPosition(bar: item.firstBar + Int(g / perBar), grid: gridIndex)
                 }
                 k += 1

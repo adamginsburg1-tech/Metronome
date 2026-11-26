@@ -90,6 +90,11 @@
     return Object.freeze({ pattern, tempo, bars, events, role });
   }
 
+  /** True when two patterns share a bar grid (same meter and subdivision); accents may differ. */
+  function sameGrid(a, b) {
+    return !!a && !!b && a.meter.num === b.meter.num && a.meter.den === b.meter.den && a.subdivision === b.subdivision;
+  }
+
   /** Grid indices in a bar that fall on a beat of `beatUnit` (always includes 0). */
   function beatGrids(pattern, beatUnit) {
     const grids = [];
@@ -121,7 +126,9 @@
         }
         if (events !== null && (!Number.isInteger(events) || events < 1)) throw new TimingError(`segment ${i} must have at least one event`);
         if (events === null && i !== segments.length - 1) throw new TimingError("only the last segment may be open-ended");
-        if (grid !== 0 && s.pattern !== prevPattern) throw new TimingError(`segment ${i} changes the pattern mid-bar`);
+        // Mid-bar, only the accents may change: the bar's grid (meter and
+        // subdivision) has to stay the same or the bar would lose its shape.
+        if (grid !== 0 && !sameGrid(s.pattern, prevPattern)) throw new TimingError(`segment ${i} changes meter or subdivision mid-bar`);
         const seg = makeSegment({ pattern: s.pattern, tempo: s.tempo, events, role: s.role });
         normalized.push(seg);
         const step = s.tempo.secondsPerWhole * s.pattern.stepWhole;
@@ -206,17 +213,18 @@
     get segmentCount() { return this._r.length; }
 
     /**
-     * First boundary at or after `t`. `unit` is "bar" (downbeats) or "beat"
-     * (beats of each segment's tempo beat unit). Returns {bar, grid} or null.
+     * First boundary at or after `t`. `unit` is "bar" (downbeats), "beat"
+     * (beats of each segment's tempo beat unit) or "step" (the very next grid
+     * point, for changes that should land immediately). Returns {bar, grid} or null.
      */
     firstBoundaryAtOrAfter(t, unit = "bar") {
       for (const r of this._r) {
         const p = r.segment.pattern;
         const per = p.eventsPerBar;
-        const ok = new Set(unit === "beat" ? beatGrids(p, r.segment.tempo.beatUnit) : [0]);
+        const ok = unit === "step" ? null : new Set(unit === "beat" ? beatGrids(p, r.segment.tempo.beatUnit) : [0]);
         for (let k = firstK(r, t); k < r.count; k++) {
           const g = r.startGrid + k;
-          if (ok.has(g % per)) return { bar: r.firstBar + Math.floor(g / per), grid: g % per };
+          if (!ok || ok.has(g % per)) return { bar: r.firstBar + Math.floor(g / per), grid: g % per };
         }
       }
       return null;
@@ -270,5 +278,5 @@
     return k;
   }
 
-  return { LEVEL, LEVEL_NAMES, TEMPO_MIN, TEMPO_MAX, TimingError, makeMeter, defaultAccents, makePattern, levelAt, makeTempo, makeSegment, beatGrids, PlaybackPlan };
+  return { LEVEL, LEVEL_NAMES, TEMPO_MIN, TEMPO_MAX, TimingError, makeMeter, defaultAccents, makePattern, levelAt, makeTempo, makeSegment, beatGrids, sameGrid, PlaybackPlan };
 });

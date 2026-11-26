@@ -55,7 +55,8 @@
     { id: "c", label: "C · Stage", name: "Minimal stage", note: "Huge numbers, big keys, nothing else on screen" },
     { id: "d", label: "D · Console", name: "Hardware console (owner reference)", note: "Green display, coloured keys, knob, status strip" },
   ];
-  const TEMPO_CHANGE = [{ id: "beat", label: "Next beat" }, { id: "bar", label: "Next bar" }];
+  // Where a tempo change lands while playing. "now" = the next click (owner, 2026-11-26).
+  const TEMPO_CHANGE = [{ id: "now", label: "Immediately" }, { id: "beat", label: "Next beat" }, { id: "bar", label: "Next bar" }];
   const SND = window.PocketSounds;
   // Recorded kits (CC0 samples bundled by web/build.mjs) first, then synthesized ones.
   const SAMPLE_KITS = (window.POCKET_SAMPLE_KITS || []).map((k) => ({ ...k, recorded: true }));
@@ -110,7 +111,7 @@
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
-        countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, sound: settings.sound, volume: settings.volume,
+        countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, tempoChangeV: 2, sound: settings.sound, volume: settings.volume,
         accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
         workspace: settings.workspace, routine: routineCfg, sessions, answers, notes: $("notes").value,
@@ -128,7 +129,9 @@
     countInMode: COUNT_IN_MODES.some((m) => m.id === stored.countInMode) ? stored.countInMode : stored.countIn === 0 ? "off" : "every",
     countInBars: COUNT_IN_BARS.includes(stored.countInBars) ? stored.countInBars : COUNT_IN_BARS.includes(stored.countIn) ? stored.countIn : 1,
     // Where a tempo change lands while playing (Docs/UX.md O-1): next beat by default.
-    tempoChange: TEMPO_CHANGE.some((t) => t.id === stored.tempoChange) ? stored.tempoChange : "beat",
+    // "beat" was the previous default; move it to the new default once.
+    tempoChange: stored.tempoChangeV === 2 && TEMPO_CHANGE.some((t) => t.id === stored.tempoChange) ? stored.tempoChange
+      : stored.tempoChange === "bar" ? "bar" : "now",
     sound: SOUNDS.some((s) => s.id === stored.sound) ? stored.sound : "wood",
     accentStyle: SND.ACCENT_STYLES.some((a) => a.id === stored.accentStyle) ? stored.accentStyle : "pitch",
     countInSound: SND.COUNT_IN_SOUNDS.some((c) => c.id === stored.countInSound) ? stored.countInSound : "sticks",
@@ -569,19 +572,28 @@
   function applyPending() {
     if (!eng.pending) return;
     const { tempo, pattern } = eng.pending;
-    let pos;
+    const tempoUnit = settings.tempoChange === "now" ? "step" : settings.tempoChange;
+    const apply = (unit) => {
+      const pos = eng.plan.firstBoundaryAtOrAfter(eng.scheduledUntil, unit);
+      if (!pos) return null;
+      eng.plan = pattern
+        ? eng.plan.changingAt(pos, (s) => ({ ...s, tempo: tempo || s.tempo, pattern: s.role === "music" ? pattern : s.pattern }))
+        : eng.plan.changingTempoAt(tempo, pos);
+      return { pos, unit };
+    };
+    let done = null;
     if (pattern) {
-      pos = eng.plan.firstBoundaryAtOrAfter(eng.scheduledUntil, "bar");
-      if (!pos) return;
-      eng.plan = eng.plan.changingAt(pos, (s) => ({ ...s, tempo: tempo || s.tempo, pattern: s.role === "music" ? pattern : s.pattern }));
+      // Accent-only changes keep the bar's grid, so they land on the next click;
+      // a new meter or subdivision has to wait for the bar line.
+      try { done = apply("step"); } catch { done = null; }
+      if (!done) done = apply("bar");
     } else {
-      pos = eng.plan.firstBoundaryAtOrAfter(eng.scheduledUntil, settings.tempoChange);
-      if (!pos) return;
-      eng.plan = eng.plan.changingTempoAt(tempo, pos);
+      done = apply(tempoUnit);
     }
-    eng.queued = { ...pos, label: eng.pending.label, unit: pattern ? "bar" : settings.tempoChange };
+    if (!done) return;
+    eng.queued = { ...done.pos, label: eng.pending.label, unit: done.unit };
     eng.pending = null;
-    log(`Change queued for bar ${pos.bar + 1}${pos.grid ? `, step ${pos.grid + 1}` : ""}: ${eng.queued.label}`);
+    log(`Change queued for bar ${done.pos.bar + 1}${done.pos.grid ? `, step ${done.pos.grid + 1}` : ""}: ${eng.queued.label}`);
     renderTempoNote();
   }
 
@@ -850,9 +862,10 @@
     const note = $("tempo-note");
     note.classList.toggle("error", !!error);
     if (error) { note.textContent = error; return; }
-    const when = (unit) => (unit === "bar" ? "Next bar" : "Next beat");
-    if (eng.pending) note.textContent = `${when(eng.pending.pattern ? "bar" : settings.tempoChange)}: ${eng.pending.label}`;
-    else if (eng.queued) note.textContent = `${when(eng.queued.unit)}: ${eng.queued.label}`;
+    const when = (unit) => ({ bar: "Next bar: ", beat: "Next beat: ", step: "Now ", now: "Now " })[unit] || "";
+    const pendingUnit = (p) => (p.pattern ? (T.sameGrid(p.pattern, eng.soundingPattern) ? "step" : "bar") : settings.tempoChange);
+    if (eng.pending) note.textContent = `${when(pendingUnit(eng.pending))}${eng.pending.label}`;
+    else if (eng.queued) note.textContent = `${when(eng.queued.unit)}${eng.queued.label}`;
     else if (eng.nowNote) note.textContent = eng.nowNote.text;
     else note.textContent = "";
   }
@@ -868,8 +881,10 @@
   function renderBeats() {
     const target = currentPattern();
     const running = isRunning();
-    const shown = running && eng.soundingPattern ? eng.soundingPattern : target;
-    const preview = running && patternKey(shown) !== patternKey(target) ? target : null;
+    // Accent edits show at once; a new meter or subdivision previews until its bar line.
+    const waitsForBar = running && eng.soundingPattern && !T.sameGrid(eng.soundingPattern, target);
+    const shown = waitsForBar ? eng.soundingPattern : target;
+    const preview = waitsForBar ? target : null;
     drawBeatRow($("beats"), shown, !preview);
     $("beats-next").hidden = !preview;
     if (preview) {

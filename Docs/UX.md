@@ -57,8 +57,9 @@ leaves only by Start or Dismiss. A failed start returns to Ready with a reason.
 - Target: set an exact tempo and start within 10 seconds (plan §10 usability gate).
 
 ### J3 · Change tempo while playing
-- **Where it lands:** on the **next beat** by default. Settings → "Tempo changes
-  land on" switches to **Next bar**. A beat follows the tempo's beat unit (a
+- **Where it lands:** **immediately**, on the next click not yet scheduled
+  (within about 150 ms), by default (owner, 2026-11-26). Settings → "Tempo
+  changes land on" offers **Next beat** and **Next bar**. A beat follows the tempo's beat unit (a
   dotted quarter in 6/8, an eighth in 7/8).
 - **−5 / −1 / +1 / +5:** the big number updates at once. A note shows
   "Next beat: 117 BPM" until the change lands, then "Now 117 BPM" for one bar.
@@ -73,9 +74,11 @@ leaves only by Start or Dismiss. A failed start returns to Ready with a reason.
   after the first tap, then the live value.
 
 ### J4 · Change the pattern while playing
-Meter, grouping, subdivision and accents always apply **at the next bar line**,
-whatever the tempo setting. If you change tempo and pattern together, both land
-on the bar line.
+**Accents** (tapping a beat) apply **immediately**: the beat row changes as you
+tap and the next click uses it, even mid-bar, because the bar's grid doesn't
+change. **Meter, grouping and subdivision** apply **at the next bar line**, with
+the preview row below. If you change tempo and meter together, both land on
+the bar line.
 
 - The beat row keeps following what you hear until the switch. The new pattern
   shows as a preview row tagged "Next bar · 3/4", then takes over on the
@@ -178,7 +181,8 @@ output-change setting, message placement, keyboard Start.
 ## Owner decisions (2026-11-25)
 
 - **O-1 · Tempo changes land on the next beat**, with a setting for next bar.
-  Pattern changes always use the next bar line.
+  *Revised 2026-11-26:* tempo changes and accent taps land **immediately** by
+  default; Next beat and Next bar stay as options; meter/subdivision on the bar line.
 - **O-2 · First launch:** 120 BPM, 4/4, 1-bar count-in. Fine for now.
 - **O-3 · Quick Click has Pause** (J5).
 - **O-4 · Count-in setting:** Every start / First start only / Off, plus length (J6).

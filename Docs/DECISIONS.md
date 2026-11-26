@@ -190,3 +190,20 @@ offline use keeps working.
 **Next:** owner auditions; replace or add kits with the owner's own recordings
 through the same tool (`manifest.json` → `build-samples.mjs`); an on-device
 importer can follow.
+
+## D-024 · Immediate tempo and accent changes; sample mapping fixes (owner, 2026-11-26)
+**Owner:** "Tapping a beat to change the pattern should happen immediately. Same
+with tempo changes." Also heard accents on the wood block where there shouldn't be any.
+**Changes:**
+- Tempo changes default to **Immediately** (next unscheduled click, ≤ ~150 ms);
+  Next beat / Next bar remain. Stored "beat" (the old default) migrates once.
+- Accent changes land on the next click, mid-bar if needed. Both cores now allow
+  a pattern change mid-bar when meter and subdivision are unchanged
+  (`sameGrid` / `hasSameGrid`), and add a "step" boundary (`ChangeBoundary.step`).
+  Meter/subdivision changes still wait for the bar line.
+- **Wood block:** the normal level rotated `wood_click_mp` with `wood_click2_mp`,
+  a different, much brighter block (pitch 1375 vs 2870 Hz), so every other beat
+  sounded accented. Normal now uses one take.
+- **Log drum:** VCSL's "Hi" files measure lower (≈155 Hz) than "Lo" (≈185 Hz);
+  accents now get the higher tongue.
+- New test: takes rotated within a level must match in brightness.
