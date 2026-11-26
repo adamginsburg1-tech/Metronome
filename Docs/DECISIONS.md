@@ -135,3 +135,10 @@ A adds the plan's left rail; B adds a tempo dial; C hides setup behind one
 button and uses a moving beat bar instead of a full-screen flash.
 **Next:** the owner picks one (checklist "4 · Design concepts"); the winner is
 carried into the Practice screens. Dark-only for now by design.
+
+## D-018 · Concept D "Console" from the owner's reference (2026-11-26)
+Added as a fourth switchable concept rather than replacing A–C, so it can be
+compared on the same flows. Takes the reference's visual language (LCD,
+coloured transport keys, tan/green-lit keycaps, mono uppercase, knob, status
+strip), not its exact layout. Setlist and sound-layer panels wait for the
+Library and Groove milestones.

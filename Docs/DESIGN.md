@@ -55,6 +55,14 @@ concept-specific rules in `web/src/styles.css`.
 | Beats | Rings with dots sized by accent | Indicator lamps; accent shown by bezel | Full-width blocks; the lit block moves along the bar (no full-screen flash, plan §10) |
 | Navigation | Left rail (Click · Practice · Groove · Library) on wide screens | Same | None (stage) |
 
+**D · Console** (added 2026-11-26 from the owner's reference image of a hardware
+console): green LCD readout (title, meter, BPM, pattern line, transport state),
+red Stop / green Start keys, tan keycaps for options with the selected key dark
+and lit green, blue section labels, monospaced uppercase type, tempo knob, and a
+status strip showing the last event, sample rate and clock. It adopts the
+reference's visual language, not its layout or content. The reference's setlist
+and layer panels belong to later features (Library, Groove) and are not built yet.
+
 What to judge (plan): the same Quick Click flow in each; night readability and
 density for B; full-screen use for C. Record the verdict in the test checklist
 ("4 · Design concepts").

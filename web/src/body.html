@@ -22,11 +22,13 @@
 
     <section class="panel play" aria-label="Tempo">
       <div class="tempo">
+        <div class="lcd-head" aria-hidden="true"><span id="lcd-title">Quick Click</span><span id="lcd-meter">4/4</span></div>
         <span class="beat-glyph" id="beat-glyph" aria-hidden="true">♩</span>
         <button type="button" class="bpm" id="bpm-display" aria-label="Tempo 112 BPM. Tap to type a tempo.">112</button>
         <input class="bpm-input" id="bpm-input" type="text" inputmode="decimal" autocomplete="off" aria-label="Tempo in BPM, 20 to 300" hidden>
         <span class="bpm-unit">BPM</span>
         <p class="tempo-note" id="tempo-note" aria-live="polite"></p>
+        <div class="lcd-lines" aria-hidden="true"><span id="lcd-pattern"></span><span id="lcd-state"></span></div>
       </div>
       <div class="dial-wrap">
         <div class="dial" id="dial" role="slider" tabindex="0" aria-label="Tempo dial" aria-valuemin="20" aria-valuemax="300" aria-valuenow="120"></div>
@@ -95,6 +97,7 @@
   <div class="hiccup" id="hiccup" role="status" hidden></div>
 
   <footer class="transport">
+    <div class="status-strip" aria-hidden="true"><span id="status-last"></span><span id="status-meta"></span></div>
     <div class="transport-inner">
       <button type="button" class="start" id="start" data-running="false">Start</button>
       <button type="button" class="secondary" id="pause" hidden>Pause</button>

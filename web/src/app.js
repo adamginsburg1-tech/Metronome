@@ -53,6 +53,7 @@
     { id: "a", label: "A · Studio", name: "Studio instrument" },
     { id: "b", label: "B · Workshop", name: "Analog workshop" },
     { id: "c", label: "C · Stage", name: "Minimal stage" },
+    { id: "d", label: "D · Console", name: "Hardware console (owner reference)" },
   ];
   const TEMPO_CHANGE = [{ id: "beat", label: "Next beat" }, { id: "bar", label: "Next bar" }];
   const SOUNDS = [{ id: "wood", label: "Wood" }, { id: "beep", label: "Beep" }];
@@ -185,6 +186,8 @@
     span.textContent = message;
     if (kind) span.className = kind;
     li.append(time, span);
+    const strip = document.getElementById("status-last");
+    if (strip) strip.textContent = message;
     const list = $("log");
     list.prepend(li);
     while (list.children.length > 200) list.lastChild.remove();
@@ -451,6 +454,7 @@
     secondary.textContent = s === "paused" ? "Stop" : "Pause";
     if (!running) { eng.currentUnit = -1; renderActiveBeat(); }
     if (s === "idle" || s === "interrupted") { $("pos-bar").textContent = "Bar –"; }
+    renderLcd();
     updateAwake();
   }
 
@@ -732,6 +736,7 @@
         }
         renderBeats();
         renderActiveBeat();
+        renderLcd();
       }
       const elapsed = eng.elapsedBefore + (performance.now() - eng.runStartPerf) / 1000;
       $("pos-time").textContent = fmtClock(elapsed);
@@ -761,6 +766,7 @@
     $("bpm-display").setAttribute("aria-label", `Tempo ${fmtBpm(tempo.bpm)} BPM. Tap to type a tempo.`);
     $("beat-glyph").textContent = glyphFor(tempo.beatUnit);
     renderDial(tempo.bpm);
+    renderLcd();
   }
   function renderTempoNote(error) {
     const note = $("tempo-note");
@@ -857,6 +863,7 @@
     chip("countin-bars-chips", COUNT_IN_BARS.map((n) => ({ id: n, label: `${n} bar${n > 1 ? "s" : ""}` })), (c) => c.id === settings.countInBars, (c) => { settings.countInBars = c.id; });
     $("countin-bars").hidden = settings.countInMode === "off";
     chip("tempo-change-chips", TEMPO_CHANGE, (t) => t.id === settings.tempoChange, (t) => { settings.tempoChange = t.id; log(`Tempo changes land on: ${t.label}`); });
+    renderLcd();
     chip("concept-chips", CONCEPTS, (c) => c.id === settings.concept, (c) => {
       if (c.id === settings.concept) return;
       settings.concept = c.id;
@@ -1144,6 +1151,35 @@
     }).catch((e) => { offlineStatus = "failed"; log(`Offline copy failed: ${e.message}`, "warn"); });
   } else if (IS_PWA) {
     offlineStatus = "not supported";
+  }
+
+  // ---------- console readout (concept D) ----------
+  const NOTE_NAMES = { 1: "Whole", 2: "Half", 4: "Quarter", 8: "Eighth", 16: "Sixteenth", 32: "Thirty-second" };
+  function subdivisionName(pattern) {
+    const den = pattern.meter.den;
+    const unit = NOTE_NAMES[den] || `1/${den}`;
+    const sub = pattern.subdivision;
+    if (sub === 1) return unit;
+    const finer = { 2: NOTE_NAMES[den * 2], 4: NOTE_NAMES[den * 4], 8: NOTE_NAMES[den * 8] }[sub];
+    const tuplet = { 3: "Triplet", 5: "Quintuplet", 6: "Sextuplet", 7: "Septuplet" }[sub];
+    return `${unit} + ${finer || tuplet || `÷${sub}`}`;
+  }
+  function renderLcd() {
+    const pattern = currentPattern();
+    const meter = pattern.meter;
+    const grouping = meter.grouping.some((g) => g > 1) && !meter.compound ? ` (${meter.grouping.join("+")})` : "";
+    $("lcd-meter").textContent = `${meter.num}/${meter.den}${grouping} time`;
+    const countIn = settings.countInMode === "off" ? "No count-in" : `Count-in ${settings.countInBars} bar${settings.countInBars > 1 ? "s" : ""}`;
+    $("lcd-pattern").textContent = `${subdivisionName(pattern)} · ${settings.sound} · ${countIn}`;
+    const bar = eng.currentBar === null ? null : eng.currentBar + eng.barOffset + 1;
+    $("lcd-state").textContent = {
+      idle: "Ready at bar 1",
+      countIn: "Count-in",
+      playing: bar ? `Playing · bar ${bar}` : "Playing",
+      paused: `Paused · resumes at bar ${eng.barOffset + 1}`,
+      interrupted: "Stopped by the system",
+    }[eng.status];
+    $("status-meta").textContent = `${eng.ctx ? eng.ctx.sampleRate / 1000 + " kHz" : "Audio off"} · Web Audio clock · settings saved on this device`;
   }
 
   // ---------- design concepts ----------

@@ -111,3 +111,11 @@ results, and "Show setup and test results" reveals them. Dial: dragging 40 px up
 went 120 → 130; Page Up added 5. No horizontal overflow at 390 px in any concept;
 no console errors. Screenshots reviewed at 1180×820 and 390×844. Not yet judged
 on the iPad or at night.
+
+## 2026-11-26 · Concept D · Console (headless Chromium)
+
+LCD shows "4/4 time", "Quarter + Eighth · wood · Count-in 1 bar" and "Playing ·
+bar 1" while running, "Paused · resumes at bar 2" when paused; the status strip
+shows the last event and "44.1 kHz · Web Audio clock…"; Start is green and turns
+red as Stop; LCD and strip are hidden in the other concepts. No overflow at
+390 px; no console errors. Screenshots reviewed at 1180×820 and 390×844.
