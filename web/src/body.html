@@ -56,6 +56,10 @@
     </section>
 
     <section class="panel quick" id="quick-panel" aria-label="Meter and volume">
+      <div class="preset-row">
+        <div class="preset-current"><span class="label">Preset</span><strong id="preset-name">Quick Click</strong><span class="preset-edited" id="preset-edited" hidden>· edited</span></div>
+        <button type="button" class="btn" id="open-presets" aria-haspopup="dialog" aria-controls="presets" aria-expanded="false">Presets</button>
+      </div>
       <fieldset class="field"><legend>Meter</legend><div class="chips" id="meter-chips"></div></fieldset>
       <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="sub-chips"></div></fieldset>
       <div class="field">
@@ -73,11 +77,11 @@
         <h2>Interval ladder</h2>
         <p class="hint">Play, rest, step up, until your top tempo. One bar of count-in before the first stage and at the end of every rest. Uses the meter and sound from Click.</p>
         <div class="form-grid">
-          <label class="num-field">Start tempo <input id="rt-start" type="number" inputmode="decimal" min="20" max="300" step="1"></label>
-          <label class="num-field">Step up by <input id="rt-step" type="number" inputmode="decimal" min="1" max="20" step="1"></label>
-          <label class="num-field">Top tempo <input id="rt-top" type="number" inputmode="decimal" min="20" max="300" step="1"></label>
-          <label class="num-field">Play (seconds) <input id="rt-play" type="number" inputmode="numeric" min="5" max="600" step="5"></label>
-          <label class="num-field">Rest (seconds) <input id="rt-rest" type="number" inputmode="numeric" min="0" max="300" step="5"></label>
+          <div class="num-field"><span>Start tempo</span><button type="button" class="num-button" id="rt-start">130</button></div>
+          <div class="num-field"><span>Step up by</span><button type="button" class="num-button" id="rt-step">5</button></div>
+          <div class="num-field"><span>Top tempo</span><button type="button" class="num-button" id="rt-top">160</button></div>
+          <div class="num-field"><span>Play (seconds)</span><button type="button" class="num-button" id="rt-play">30</button></div>
+          <div class="num-field"><span>Rest (seconds)</span><button type="button" class="num-button" id="rt-rest">15</button></div>
         </div>
         <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="rt-sub-chips"></div></fieldset>
         <p class="rt-preview" id="rt-preview"></p>
@@ -125,6 +129,30 @@
 
   <div class="hiccup" id="hiccup" role="status" hidden></div>
 
+  <!-- Presets: save and recall a whole Quick Click setup. -->
+  <section class="popover presets" id="presets" role="dialog" aria-modal="false" aria-labelledby="presets-title" hidden>
+    <div class="popover-head">
+      <h2 id="presets-title">Presets</h2>
+      <div class="actions">
+        <button type="button" class="btn" id="presets-edit" aria-pressed="false">Edit</button>
+        <button type="button" class="btn primary" id="presets-close">Done</button>
+      </div>
+    </div>
+    <ol class="preset-list" id="preset-list"></ol>
+    <form class="preset-save" id="preset-save-form" hidden>
+      <label class="num-field" for="preset-name-input">Name</label>
+      <input id="preset-name-input" type="text" maxlength="40" autocomplete="off" enterkeyhint="done">
+      <div class="actions">
+        <button type="button" class="btn" id="preset-save-cancel">Cancel</button>
+        <button type="submit" class="btn primary" id="preset-save-confirm">Save</button>
+      </div>
+    </form>
+    <div class="popover-actions" id="preset-actions">
+      <button type="button" class="btn" id="preset-update">Update preset</button>
+      <button type="button" class="btn primary" id="preset-save-new">Save as new</button>
+    </div>
+  </section>
+
   <!-- Tempo keypad: iPadOS has no number-only keyboard for web pages, so POCKET draws its own. -->
   <section class="keypad" id="keypad" role="dialog" aria-modal="false" aria-labelledby="keypad-title" hidden>
     <div class="keypad-head">
@@ -160,6 +188,10 @@
     </div>
     <div class="sheet-body">
       <div class="pane" role="tabpanel" id="pane-click" aria-labelledby="tab-click">
+        <div class="field">
+          <span class="label">Preset</span>
+          <div><button type="button" class="btn" id="open-presets-sheet">Presets…</button></div>
+        </div>
         <fieldset class="field"><legend>Meter</legend><div class="chips" id="meter-chips-sheet"></div></fieldset>
         <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="sub-chips-sheet"></div></fieldset>
         <fieldset class="field"><legend>Count-in</legend><div class="chips" id="countin-chips"></div></fieldset>

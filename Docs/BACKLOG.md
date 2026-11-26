@@ -46,6 +46,11 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☐ **Owner:** try A/B/C at the stand, day and night; pick one
 - ☐ Carry the chosen concept into the Practice screens
 
+## Design references
+- ☑ Apple HIG review and fixes (`Docs/HIG_REVIEW.md`)
+- ☐ Mobbin (needs a paid plan) or owner screenshots for metronome / interval-timer patterns
+- ☐ Check iPad text-size settings on device
+
 ## Sounds
 - ☑ Eight synthesized click kits, sticks count-in, accent style, subdivision
   volume, Sound tab with previews (D-021)
@@ -69,7 +74,8 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
   paused → stopped; error/interrupted require deliberate recovery
 - ☐ Tempo controls −5/−1/field/+1/+5, tap tempo; "next bar" queued display
 - ☐ Meter/grouping/subdivision/accent editing; sound + master volume; visual pulse
-- ☐ Presets + last-used state, offline persistence
+- ☑ Presets (save as new / update / rename / delete, starter presets) and
+  last-used state, on device (D-026)
 - ☐ Swing for paired divisions (plan §07)
 
 ## Later (M2+)

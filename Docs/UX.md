@@ -119,6 +119,17 @@ the bar line.
 - Turning it off lets silent mode mute the click, and lets other apps' music
   carry on. It applies from the next Start.
 
+### J9 · Presets
+- The side panel shows the current preset's name, with "· edited" once you change
+  anything. **Presets** opens the list (also in Settings › Click for the Stage look).
+- Tap a preset to load it. While playing, tempo and accents change at once; a new
+  meter or subdivision waits for the bar line, as usual.
+- **Save as new** (name suggested, e.g. "125 BPM 4/4") and **Update "name"** are
+  separate buttons, so nothing is overwritten by accident (plan §05).
+- **Edit** shows Rename and Delete; Delete needs a second tap.
+- A preset holds tempo, meter and grouping, accents, subdivision, sound and
+  count-in. Starter presets: Quick Click, Double pedal eighths, 7/8 (2+2+3) groove.
+
 ### J8 · Settings
 - The main screen holds only what you touch while playing: tempo, ±/TAP, the
   beat row, meter, subdivision and volume. (Stage look: tempo, ±/TAP and beats only.)
@@ -143,16 +154,18 @@ you dismiss it or press Start. Screen readers announce it once (alert role).
 
 | Case | Trigger | POCKET does | Message |
 |---|---|---|---|
-| **Audio taken over** | A call, Siri, an alarm or another app takes the audio | Stops; won't resume | **Click stopped.** A call or another app took over the sound. Press Start when you're ready. |
-| **Output changed** | Headphones unplugged, Bluetooth disconnected or switched | Stops (setting, on by default) | **Click stopped because the sound output changed.** Check where it will play, then press Start. |
-| **Stopped in the background** | You left POCKET and the system stopped the sound | Stops; shows on return | **Click stopped while POCKET was in the background.** Press Start to play again. |
-| **Fell behind in the background** | Sound kept going but clicks were skipped while away | Stops on return | **Click stopped: POCKET skipped 6 clicks while in the background.** Press Start to play again. |
+| **Audio taken over** | A call, Siri, an alarm or another app takes the audio | Pauses (keeps your place); won't resume | **Click paused.** A call or another app took over the sound. Press Resume when you're ready. |
+| **Output changed** | Headphones unplugged, Bluetooth disconnected or switched | Pauses (setting, on by default) | **Click paused because the sound output changed.** Check where it will play, then press Resume. |
+| **Stopped in the background** | You left POCKET and the system stopped the sound | Pauses; shows on return | **Click paused while POCKET was in the background.** Press Resume to continue. |
+| **Fell behind in the background** | Sound kept going but clicks were skipped while away | Pauses on return | **Click paused: POCKET skipped 6 clicks while in the background.** Press Resume to continue. |
 | **Can't start** | Audio won't start | Returns to Ready | **No sound yet.** Check the volume and that the iPad isn't muted, then press Start. |
 | **Timing hiccup** | Clicks skipped while on screen | Keeps playing; counts it | **Timing hiccup: 2 clicks were skipped.** Close other apps if it happens again. *(non-blocking, fades after 5 s)* |
 | **Screen may lock** | Keep-awake isn't possible | Keeps playing | The screen may lock on its usual timer. *(status text, not a message bar)* |
 | **Couldn't save** | Storage write fails | Keeps working | **Couldn't save this change.** Your setup works until you close POCKET. |
 
-Why stop on return after skipped clicks (instead of carrying on): a click that
+System interruptions **pause** rather than stop (Apple HIG › Playing audio:
+unplugging headphones pauses playback), so your bar count and practice stage are
+kept; nothing ever resumes without you. Why pause on return after skipped clicks (instead of carrying on): a click that
 skipped while you weren't looking has already broken your time. Making you press
 Start is the honest way to say so (principle 3).
 

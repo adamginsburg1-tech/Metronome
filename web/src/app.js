@@ -108,13 +108,14 @@
   const STORE_KEY = "pocket-webtest-v1";
   function loadStore() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } }
   function saveStore() {
+    if (typeof renderPresetCurrent === "function" && document.getElementById("preset-name")) { try { renderPresetCurrent(); } catch { /* not ready yet */ } }
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, tempoChangeV: 2, sound: settings.sound, volume: settings.volume,
         accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
-        workspace: settings.workspace, routine: routineCfg, sessions, answers, notes: $("notes").value,
+        workspace: settings.workspace, routine: routineCfg, sessions, presets, presetId: settings.presetId, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -145,6 +146,7 @@
     concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "a",
     settingsTab: ["click", "sound", "look", "ipad", "test"].includes(stored.settingsTab) ? stored.settingsTab : "click",
     workspace: stored.workspace === "practice" ? "practice" : "click",
+    presetId: typeof stored.presetId === "string" ? stored.presetId : Array.isArray(stored.presets) ? null : "p-quick",
   };
   const answers = stored.answers || {};
 
@@ -153,6 +155,15 @@
   const routineCfg = Object.assign({}, ROUTINE_DEFAULTS, stored.routine && typeof stored.routine === "object" ? stored.routine : {});
   // Saved sessions live on this device only (a repository comes later, plan §08).
   const sessions = Array.isArray(stored.sessions) ? stored.sessions.slice(0, 20) : [];
+
+  // Presets: named Quick Click setups (plan §08 "Preset"). Starter examples are
+  // added once and can be deleted.
+  const PRESET_FIELDS = ["bpm", "meterId", "accents", "subdivision", "sound", "countInMode", "countInBars"];
+  const presets = Array.isArray(stored.presets) ? stored.presets : [
+    { id: "p-quick", name: "Quick Click", bpm: 120, meterId: "4/4", accents: null, subdivision: 1, sound: "wood", countInMode: "every", countInBars: 1 },
+    { id: "p-pedal", name: "Double pedal eighths", bpm: 130, meterId: "4/4", accents: null, subdivision: 2, sound: "wood", countInMode: "every", countInBars: 1 },
+    { id: "p-seven", name: "7/8 (2+2+3) groove", bpm: 220, meterId: "7/8a", accents: null, subdivision: 1, sound: "clave", countInMode: "every", countInBars: 1 },
+  ];
 
   // ---------- engine state ----------
   const eng = {
@@ -463,6 +474,18 @@
     renderTempoNote();
   }
 
+  /**
+   * The system interrupted playback (call, other app, output change, background).
+   * Apple HIG › Playing audio: pause, keep the place, never resume on our own.
+   */
+  function systemPause(message, cause) {
+    if (!isRunning()) return;
+    pause();
+    stats.interruptions++;
+    showBanner(message);
+    log(`Paused by the system (${cause}): ${message}`, "warn");
+  }
+
   function stop(reason, cause = "") {
     if ((eng.status === "idle" || eng.status === "interrupted") && !reason) return;
     silence();
@@ -615,9 +638,9 @@
     log(`Audio state: ${st}`, st === "running" ? "info" : "warn");
     if ((eng.status === "playing" || eng.status === "countIn") && st !== "running") {
       // Copy from Docs/UX.md › Messages.
-      stop(document.hidden
-        ? "Click stopped while POCKET was in the background. Press Start to play again."
-        : "Click stopped. A call or another app took over the sound. Press Start when you're ready.", `audio ${st}`);
+      systemPause(document.hidden
+        ? "Click paused while POCKET was in the background. Press Resume to continue."
+        : "Click paused. A call or another app took over the sound. Press Resume when you're ready.", `audio ${st}`);
     }
   }
 
@@ -639,9 +662,9 @@
       const missed = stats.missed - eng.missedAtHide;
       log(`Page visible after ${away} s; ${missed} clicks missed while away; audio ${eng.ctx ? eng.ctx.state : "not started"}`, missed ? "warn" : "info");
       if (playing && eng.ctx && eng.ctx.state !== "running") {
-        stop("Click stopped while POCKET was in the background. Press Start to play again.", "audio stopped in background");
+        systemPause("Click paused while POCKET was in the background. Press Resume to continue.", "audio stopped in background");
       } else if (playing && missed > 0) {
-        stop(`Click stopped: POCKET skipped ${missed} click${missed === 1 ? "" : "s"} while in the background. Press Start to play again.`, "clicks skipped in background");
+        systemPause(`Click paused: POCKET skipped ${missed} click${missed === 1 ? "" : "s"} while in the background. Press Resume to continue.`, "clicks skipped in background");
       }
     }
     updateAwake();
@@ -657,7 +680,7 @@
       const playing = eng.status === "playing" || eng.status === "countIn";
       log(`Audio devices changed${playing ? " while playing" : ""}; output latency now ${ms(eng.ctx && eng.ctx.outputLatency)}`, "warn");
       if (playing && settings.routeStop) {
-        stop("Click stopped because the sound output changed. Check where it will play, then press Start.", "output changed");
+        systemPause("Click paused because the sound output changed. Check where it will play, then press Resume.", "output changed");
       }
     });
   }
@@ -1112,6 +1135,15 @@
   $("start").addEventListener("click", () => (isRunning() ? stop() : eng.status === "paused" ? start(true) : start()));
   $("pause").addEventListener("click", () => (isRunning() ? pause() : eng.status === "paused" ? stop() : null));
   $("banner-dismiss").addEventListener("click", () => { hideBanner(); if (eng.status === "interrupted") setStatus("idle"); });
+  // Hardware keyboard tempo (HIG › Steppers: a modifier for bigger steps): ↑/↓ ±1, Shift ±5.
+  document.addEventListener("keydown", (e) => {
+    if (keypad.open || e.target.closest("input, textarea, select, [role=slider]")) return;
+    if (!$("settings").hidden) return;
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      setBpm(Math.round(settings.bpm) + (e.key === "ArrowUp" ? 1 : -1) * (e.shiftKey ? 5 : 1));
+    }
+  });
   // Nudges. ±1 repeats while held: after 400 ms, 8 steps a second, no
   // acceleration; stops when the finger lifts or slides off (Docs/UX.md J3).
   const HOLD_DELAY = 400;
@@ -1161,36 +1193,43 @@
     }
   });
 
-  // ---------- tempo keypad ----------
-  // iPadOS shows its full keyboard even for number fields, so tapping the tempo
-  // opens POCKET's own pad. The first key replaces the shown value. Hardware
-  // keys work too (digits, ".", Backspace, Enter, Escape).
-  const keypad = { open: false, text: "", fresh: true, lastFocus: null };
+  // ---------- number pad ----------
+  // iPadOS shows its full keyboard even for number fields, so POCKET draws its
+  // own pad (HIG › Pickers: shown in context, next to the value being edited).
+  // Used for the tempo and the Practice setup values. The first key replaces
+  // the shown value. Hardware keys work too (digits, ".", Backspace, Enter, Escape).
+  const keypad = { open: false, text: "", fresh: true, lastFocus: null, cfg: null };
   function placeKeypad() {
     const el = $("keypad");
-    const anchor = $("bpm-display").getBoundingClientRect();
+    const anchor = keypad.cfg.anchor.getBoundingClientRect();
     const transportTop = document.querySelector(".transport").getBoundingClientRect().top;
     const w = el.offsetWidth, h = el.offsetHeight;
-    let left = Math.min(Math.max(16, anchor.left), window.innerWidth - w - 16);
+    const left = Math.min(Math.max(16, anchor.left), window.innerWidth - w - 16);
     let top = anchor.bottom + 8;
     if (top + h > transportTop - 8) top = Math.max(16, transportTop - 8 - h);
     el.style.left = `${left}px`;
     el.style.top = `${top}px`;
   }
+  const fmtNum = (v, decimals) => (decimals ? fmtBpm(v) : String(Math.round(v)));
   function renderKeypad(error) {
+    const cfg = keypad.cfg;
     const v = $("keypad-value");
-    v.textContent = keypad.fresh ? fmtBpm(settings.bpm) : (keypad.text || "–");
+    v.textContent = keypad.fresh ? fmtNum(cfg.value, cfg.decimals) : (keypad.text || "–");
     v.classList.toggle("fresh", keypad.fresh);
     const note = $("keypad-note");
-    note.textContent = error || "20 to 300 BPM";
+    note.textContent = error || `${cfg.min} to ${cfg.max}${cfg.unit ? ` ${cfg.unit}` : ""}`;
     note.classList.toggle("error", !!error);
   }
-  function openKeypad() {
-    if (keypad.open) return;
+  /** cfg: { title, value, min, max, decimals (0 or 2), unit, anchor, onSet(value) } */
+  function openKeypad(cfg) {
+    if (keypad.open) closeKeypad();
+    keypad.cfg = cfg;
     keypad.open = true;
     keypad.text = "";
     keypad.fresh = true;
     keypad.lastFocus = document.activeElement;
+    $("keypad-title").textContent = cfg.title;
+    $("keypad").querySelector('[data-key="."]').disabled = !cfg.decimals;
     $("keypad").hidden = false;
     renderKeypad();
     placeKeypad();
@@ -1203,34 +1242,36 @@
     if (keypad.lastFocus && document.contains(keypad.lastFocus)) keypad.lastFocus.focus({ preventScroll: true });
   }
   function pressKey(k) {
+    const cfg = keypad.cfg;
     let t = keypad.fresh ? "" : keypad.text;
     if (k === "back") t = t.slice(0, -1);
-    else if (k === ".") { if (!t.includes(".")) t = (t || "0") + "."; }
-    else {
-      const decimals = t.includes(".") ? t.split(".")[1].length : 0;
-      const digits = t.replace(".", "").length;
-      if (decimals < 2 && digits < 5) t += k;
-    }
+    else if (k === ".") { if (cfg.decimals && !t.includes(".")) t = (t || "0") + "."; }
+    else if (t.includes(".")) { if (t.split(".")[1].length < cfg.decimals) t += k; }
+    else if (t.length < 3) t += k; // every POCKET value fits in three whole digits
     keypad.text = t;
     keypad.fresh = false;
     renderKeypad();
   }
   function commitKeypad() {
+    const cfg = keypad.cfg;
     if (keypad.fresh) { closeKeypad(); return; }
     const v = Number(keypad.text);
-    if (!keypad.text || !Number.isFinite(v) || v < T.TEMPO_MIN || v > T.TEMPO_MAX) {
-      renderKeypad(`Enter a tempo from ${T.TEMPO_MIN} to ${T.TEMPO_MAX}.`);
+    if (!keypad.text || !Number.isFinite(v) || v < cfg.min || v > cfg.max) {
+      renderKeypad(`Enter a value from ${cfg.min} to ${cfg.max}.`);
       return;
     }
-    setBpm(v);
     closeKeypad();
+    cfg.onSet(v);
   }
-  $("bpm-display").addEventListener("click", () => (keypad.open ? closeKeypad() : openKeypad()));
-  $("keypad").addEventListener("click", (e) => { const b = e.target.closest("[data-key]"); if (b) pressKey(b.dataset.key); });
+  $("bpm-display").addEventListener("click", () => {
+    if (keypad.open && keypad.cfg.anchor === $("bpm-display")) { closeKeypad(); return; }
+    openKeypad({ title: "Set tempo", value: settings.bpm, min: T.TEMPO_MIN, max: T.TEMPO_MAX, decimals: 2, unit: "BPM", anchor: $("bpm-display"), onSet: setBpm });
+  });
+  $("keypad").addEventListener("click", (e) => { const b = e.target.closest("[data-key]"); if (b && !b.disabled) pressKey(b.dataset.key); });
   $("keypad-set").addEventListener("click", commitKeypad);
   $("keypad-cancel").addEventListener("click", closeKeypad);
   document.addEventListener("pointerdown", (e) => {
-    if (keypad.open && !e.target.closest("#keypad, #bpm-display, .transport")) closeKeypad();
+    if (keypad.open && !e.target.closest("#keypad, .transport") && !keypad.cfg.anchor.contains(e.target)) closeKeypad();
   }, true);
   document.addEventListener("keydown", (e) => {
     if (!keypad.open) return;
@@ -1540,7 +1581,7 @@
     $("practice-live").hidden = !rt.active;
     $("practice-summary").hidden = !rt.summaryOpen;
     if (!rt.active && !rt.summaryOpen) {
-      for (const k of ["start", "step", "top", "play", "rest"]) $(`rt-${k}`).value = String(routineCfg[k]);
+      renderRtFields();
       renderPreview();
     }
     renderHistory();
@@ -1585,13 +1626,26 @@
     }
   }
 
-  for (const k of ["start", "step", "top", "play", "rest"]) {
-    $(`rt-${k}`).addEventListener("change", (e) => {
-      routineCfg[k] = Number(e.target.value);
-      clampCfg();
-      for (const j of ["start", "step", "top", "play", "rest"]) $(`rt-${j}`).value = String(routineCfg[j]);
-      renderPreview();
-      saveStore();
+  const RT_FIELDS = {
+    start: { title: "Start tempo", min: T.TEMPO_MIN, max: T.TEMPO_MAX, unit: "BPM" },
+    step: { title: "Step up by", min: 1, max: 20, unit: "BPM" },
+    top: { title: "Top tempo", min: T.TEMPO_MIN, max: T.TEMPO_MAX, unit: "BPM" },
+    play: { title: "Play", min: 5, max: 600, unit: "seconds" },
+    rest: { title: "Rest", min: 0, max: 300, unit: "seconds" },
+  };
+  function renderRtFields() {
+    for (const [k, f] of Object.entries(RT_FIELDS)) {
+      const b = $(`rt-${k}`);
+      b.textContent = String(routineCfg[k]);
+      b.setAttribute("aria-label", `${f.title}: ${routineCfg[k]} ${f.unit}. Tap to change.`);
+    }
+  }
+  for (const [k, f] of Object.entries(RT_FIELDS)) {
+    $(`rt-${k}`).addEventListener("click", (e) => {
+      openKeypad({
+        ...f, value: routineCfg[k], decimals: 0, anchor: e.currentTarget,
+        onSet: (v) => { routineCfg[k] = v; clampCfg(); renderRtFields(); renderPreview(); saveStore(); },
+      });
     });
   }
   $("rt-repeat").addEventListener("click", () => changeLadder("repeat"));
@@ -1612,6 +1666,7 @@
     rt.finished = false;
     saveStore();
     log(`Session saved: clean ${session.cleanTempo} BPM`, "info");
+    showToast("Session saved");
     renderPractice();
   });
   $("rt-discard").addEventListener("click", () => {
@@ -1668,6 +1723,171 @@
       interrupted: "Stopped by the system",
     }[eng.status];
     $("status-meta").textContent = `${eng.ctx ? eng.ctx.sampleRate / 1000 + " kHz" : "Audio off"} · Web Audio clock · settings saved on this device`;
+  }
+
+  // ---------- presets ----------
+  const presetUI = { editing: false, armedDelete: null, renaming: null, lastFocus: null, anchor: null };
+  const snapshot = () => Object.fromEntries(PRESET_FIELDS.map((k) => [k, settings[k] ?? null]));
+  const samePreset = (p) => PRESET_FIELDS.every((k) => JSON.stringify(p[k] ?? null) === JSON.stringify(settings[k] ?? null));
+  const currentPreset = () => presets.find((p) => p.id === settings.presetId) || null;
+  function presetSummary(p) {
+    const m = METERS.find((x) => x.id === p.meterId);
+    const kit = SOUNDS.find((k) => k.id === p.sound);
+    return `${fmtBpm(p.bpm)} · ${m ? (m.label || m.id) + (m.note ? ` ${m.note}` : "") : p.meterId}${p.subdivision > 1 ? ` ÷${p.subdivision}` : ""} · ${kit ? kit.label : p.sound}`;
+  }
+  function renderPresetCurrent() {
+    const p = currentPreset();
+    $("preset-name").textContent = p ? p.name : "Not saved";
+    $("preset-edited").hidden = !p || samePreset(p);
+  }
+  function renderPresets() {
+    renderPresetCurrent();
+    const list = $("preset-list");
+    list.textContent = "";
+    if (!presets.length) {
+      const li = document.createElement("li");
+      li.className = "hint";
+      li.textContent = "No presets yet. Set up the click, then Save as new.";
+      list.append(li);
+    }
+    for (const p of presets) {
+      const li = document.createElement("li");
+      li.className = "preset-item";
+      const load = document.createElement("button");
+      load.type = "button";
+      load.className = "preset-load";
+      load.setAttribute("aria-current", String(p.id === settings.presetId));
+      const name = document.createElement("span"); name.className = "name"; name.textContent = p.name;
+      const sum = document.createElement("span"); sum.className = "sum"; sum.textContent = presetSummary(p);
+      load.append(name, sum);
+      load.addEventListener("click", () => { if (!presetUI.editing) loadPreset(p); });
+      li.append(load);
+      if (presetUI.editing) {
+        const ren = document.createElement("button");
+        ren.type = "button"; ren.className = "btn"; ren.textContent = "Rename";
+        ren.addEventListener("click", () => openPresetName("rename", p));
+        const del = document.createElement("button");
+        del.type = "button"; del.className = "btn danger";
+        del.textContent = presetUI.armedDelete === p.id ? "Delete?" : "Delete";
+        del.setAttribute("aria-label", presetUI.armedDelete === p.id ? `Tap again to delete ${p.name}` : `Delete ${p.name}`);
+        del.addEventListener("click", () => {
+          if (presetUI.armedDelete !== p.id) { presetUI.armedDelete = p.id; renderPresets(); return; }
+          presets.splice(presets.indexOf(p), 1);
+          if (settings.presetId === p.id) settings.presetId = null;
+          presetUI.armedDelete = null;
+          log(`Preset deleted: ${p.name}`);
+          saveStore();
+          renderPresets();
+        });
+        li.append(ren, del);
+      }
+      list.append(li);
+    }
+    const cur = currentPreset();
+    const update = $("preset-update");
+    update.disabled = !cur || samePreset(cur);
+    update.textContent = cur ? `Update “${cur.name}”` : "Update preset";
+    $("presets-edit").setAttribute("aria-pressed", String(presetUI.editing));
+    $("presets-edit").textContent = presetUI.editing ? "Finish editing" : "Edit";
+  }
+  function loadPreset(p) {
+    for (const k of PRESET_FIELDS) if (p[k] !== undefined) settings[k] = Array.isArray(p[k]) ? p[k].slice() : p[k];
+    settings.presetId = p.id;
+    log(`Preset loaded: ${p.name}`);
+    renderTempo();
+    renderSetup();
+    if (isRunning()) queueChange("pattern");
+    renderBeats();
+    renderTempoNote();
+    saveStore();
+    renderPresets();
+    closePresets();
+  }
+  function openPresetName(mode, p) {
+    presetUI.renaming = mode === "rename" ? p.id : null;
+    const input = $("preset-name-input");
+    input.value = mode === "rename" ? p.name : `${fmtBpm(settings.bpm)} BPM ${currentMeter().label}`;
+    $("preset-save-form").hidden = false;
+    $("preset-actions").hidden = true;
+    $("preset-save-confirm").textContent = mode === "rename" ? "Rename" : "Save";
+    input.focus();
+    input.select();
+  }
+  function closePresetName() {
+    $("preset-save-form").hidden = true;
+    $("preset-actions").hidden = false;
+    presetUI.renaming = null;
+  }
+  $("preset-save-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("preset-name-input").value.trim();
+    if (!name) { $("preset-name-input").focus(); return; }
+    if (presetUI.renaming) {
+      const p = presets.find((x) => x.id === presetUI.renaming);
+      if (p) { log(`Preset renamed: ${p.name} → ${name}`); p.name = name; }
+    } else {
+      const p = { id: `p-${Date.now().toString(36)}`, name, ...snapshot() };
+      presets.push(p);
+      settings.presetId = p.id;
+      log(`Preset saved: ${name}`, "info");
+      showToast(`Saved “${name}”`);
+    }
+    closePresetName();
+    saveStore();
+    renderPresets();
+  });
+  $("preset-save-cancel").addEventListener("click", closePresetName);
+  $("preset-save-new").addEventListener("click", () => openPresetName("new"));
+  $("preset-update").addEventListener("click", () => {
+    const p = currentPreset();
+    if (!p) return;
+    Object.assign(p, snapshot());
+    log(`Preset updated: ${p.name}`, "info");
+    showToast(`Updated “${p.name}”`);
+    saveStore();
+    renderPresets();
+  });
+  $("presets-edit").addEventListener("click", () => { presetUI.editing = !presetUI.editing; presetUI.armedDelete = null; renderPresets(); });
+  function openPresets(anchor) {
+    presetUI.lastFocus = document.activeElement;
+    presetUI.anchor = anchor;
+    presetUI.editing = false;
+    presetUI.armedDelete = null;
+    closePresetName();
+    renderPresets();
+    const el = $("presets");
+    el.hidden = false;
+    $("open-presets").setAttribute("aria-expanded", "true");
+    const a = anchor.getBoundingClientRect();
+    const left = Math.min(Math.max(16, a.right - el.offsetWidth), window.innerWidth - el.offsetWidth - 16);
+    el.style.left = `${left}px`;
+    el.style.top = `${Math.max(16, a.bottom + 8)}px`;
+    $("presets-title").setAttribute("tabindex", "-1");
+    $("presets-title").focus({ preventScroll: true });
+  }
+  function closePresets() {
+    if ($("presets").hidden) return;
+    $("presets").hidden = true;
+    $("open-presets").setAttribute("aria-expanded", "false");
+    if (presetUI.lastFocus && document.contains(presetUI.lastFocus)) presetUI.lastFocus.focus({ preventScroll: true });
+  }
+  $("open-presets").addEventListener("click", (e) => ($("presets").hidden ? openPresets(e.currentTarget) : closePresets()));
+  $("open-presets-sheet").addEventListener("click", () => { closeSettings(); openPresets($("open-settings")); });
+  $("presets-close").addEventListener("click", closePresets);
+  document.addEventListener("pointerdown", (e) => {
+    if (!$("presets").hidden && !e.target.closest("#presets, #open-presets, #open-presets-sheet, .transport")) closePresets();
+  }, true);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("presets").hidden && $("preset-save-form").hidden) closePresets(); });
+
+  // Short confirmations (HIG › Feedback: confirm significant actions).
+  let toastTimer = null;
+  function showToast(text) {
+    const el = $("hiccup");
+    el.textContent = text;
+    el.hidden = false;
+    el.classList.remove("fading");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.classList.add("fading"); setTimeout(() => { el.hidden = true; el.classList.remove("fading"); }, 400); }, 2000);
   }
 
   // ---------- design concepts ----------
@@ -1834,6 +2054,7 @@
   renderBeats();
   renderSetup();
   renderChecks();
+  renderPresets();
   renderMetrics();
   renderAwake();
   updateAwake();

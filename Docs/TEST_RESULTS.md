@@ -238,3 +238,22 @@ applied it; 400 kept the pad open with "Enter a tempo from 20 to 300."; Enter
 from a hardware keyboard set 88; Escape kept 88; while playing, Set showed
 "Now 120 BPM"; Stop worked with the pad open; tapping outside closed it; no
 console errors. Screenshot reviewed. Not yet tried on the iPad.
+
+## 2026-11-26 · HIG fixes, presets, Practice number pad (headless Chromium, iPad Pro 11 emulation)
+
+- **Audit (all four looks):** only remaining sub-44 px controls are the two
+  checkboxes inside 44 px labels; contrast warnings left are D's tan-gradient keys,
+  verified by hand at 6.1–6.9:1.
+- **Presets:** starter list shown with summaries; "· edited" after +5; Save as new
+  suggested "125 BPM 4/4", saved with a confirmation; loading the 7/8 preset while
+  playing previewed and switched at the bar line (7 beats); Update overwrote only
+  the current preset; Rename; Delete needed two taps; the current preset survived
+  a reload.
+- **Practice pad:** Start tempo pad (no decimal key), 140 set and preview updated;
+  700 s rejected ("Enter a value from 5 to 600."); no text inputs left in setup.
+- **Interruptions:** a simulated output change while playing → Paused, "Click
+  paused because the sound output changed…", Resume / Stop shown; Resume
+  continued with a count-in.
+- **Keyboard:** ↑ then Shift+↑ took 120 → 126.
+- **Regression:** practice ladder, immediate changes, settings sheet and
+  recorded kits (0 missed) all still pass; no console errors.

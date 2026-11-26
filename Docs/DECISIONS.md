@@ -214,3 +214,13 @@ keyboard (numbers layout) even for `inputmode="decimal"`, so tapping the tempo
 now opens an in-app pad (0–9, ".", delete, Cancel, Set) anchored under the
 number, styled per concept. Up to 5 digits and 2 decimals; 20–300 validated.
 Hardware keys supported. The text field is removed.
+
+## D-026 · HIG pass, presets, number pad everywhere (owner, 2026-11-26)
+- **HIG review** (`Docs/HIG_REVIEW.md`): 44 px workspace switch; D note contrast;
+  system interruptions now **pause** instead of stop (headphones, calls, other
+  apps, background), keeping bar and practice stage; hardware arrow keys for
+  tempo (Shift for 5); confirmations for saves.
+- **Presets:** named Quick Click setups stored on the device; Save as new vs
+  Update kept separate; two-tap delete; three starter presets.
+- **Number pad** generalized (range, decimals, unit) and used for the Practice
+  setup values as well as the tempo.
