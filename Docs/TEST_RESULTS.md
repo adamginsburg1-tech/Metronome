@@ -208,3 +208,10 @@ errors. Screenshots reviewed at 1180×820 and 390×844.
 - **Side note:** Chrome reports `audioSession.type` back as "auto" after audio
   stops, so POCKET sets "playback" again at each Start (seen as repeated log
   lines). Harmless; silent-mode behaviour still needs the real check.
+
+## 2026-11-26 · Silent mode on iPad (owner)
+
+- **Result:** with silent mode on, the click still plays (owner: "works").
+- Browser: Chrome on iPad (same session as the steady run above). Uses the
+  audio-session setting plus the inaudible looping track (D-016).
+- Still open: whether music from another app keeps playing alongside POCKET.

@@ -5,7 +5,7 @@ Status: ☐ todo · ◐ in progress · ☑ done. Milestones from plan §09.
 ## Platform spike (decides web-first vs native)
 - ☑ Web test: Quick Click with Web Audio lookahead scheduler, diagnostics,
   checklist and copyable report; preview artifact + home-screen build (`web/`)
-- ◐ **Owner:** iPad checks. Chrome steady run done (8 min, 0 missed, screen stayed on); still to do: silent mode, interruptions, Safari, offline
+- ◐ **Owner:** iPad checks. Chrome steady run done (8 min, 0 missed, screen stayed on); silent mode works; still to do: interruptions, Safari, offline
 - ☐ Enable GitHub Pages (Settings → Pages → Source: GitHub Actions) for the
   home-screen/offline check
 - ☐ Decide web-first vs native (D-008) and update this backlog
