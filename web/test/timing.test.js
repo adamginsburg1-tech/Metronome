@@ -208,3 +208,46 @@ test("accents can change mid-bar; meter or subdivision cannot", () => {
   assert.throws(() => plan.changingAt({ bar: 0, grid: 1 }, (s) => ({ ...s, pattern: T.makePattern({ meter, subdivision: 2 }) })));
   assert.throws(() => plan.changingAt({ bar: 0, grid: 1 }, (s) => ({ ...s, pattern: T.makePattern({ meter: T.makeMeter(3, 4) }) })));
 });
+
+// ---------- gap click ----------
+const GAP_SEQUENCE_12345_30 = "0000001000000001000000000101011000011001000100000110001000110000"; // must match the Swift core (GapTests)
+
+test("cycle gaps: play 2 bars, 2 silent, repeating; count-in never silent", () => {
+  const plan = quarterPlan(120, { countInBars: 1, gaps: { mode: "cycle", play: 2, mute: 2 } });
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map((b) => plan.isGapBar(b)), [false, false, true, true, false, false, true, true]);
+  assert.equal(plan.isGapBar(-1), false);
+  const audible = plan.eventsIn(0, 2 + 8 * 2 - 1e-9);
+  assert.equal(audible.filter((e) => e.role === "countIn").length, 4);
+  assert.deepEqual([...new Set(audible.filter((e) => e.role === "music").map((e) => e.bar))], [0, 1, 4, 5]);
+  const all = plan.eventsIn(0, 18 - 1e-9, { includeGaps: true });
+  assert.equal(all.filter((e) => e.gap).length, 16);
+  assert.ok(all.filter((e) => e.gap).every((e) => [2, 3, 6, 7].includes(e.bar)));
+});
+
+test("random gaps are reproducible from the seed and follow the rules", () => {
+  const make = (seed) => quarterPlan(120, { gaps: { mode: "random", percent: 30, seed } });
+  const seq = (p) => Array.from({ length: 64 }, (_, b) => (p.isGapBar(b) ? 1 : 0)).join("");
+  assert.equal(seq(make(12345)), GAP_SEQUENCE_12345_30);
+  assert.equal(seq(make(12345)), seq(make(12345)));
+  assert.notEqual(seq(make(12345)), seq(make(777)));
+  const long = make(42);
+  const bars = Array.from({ length: 5000 }, (_, b) => long.isGapBar(b));
+  assert.equal(bars[0] || bars[1], false, "warm-up bars are never silent");
+  for (let b = 2; b < bars.length; b++) assert.ok(!(bars[b] && bars[b - 1] && bars[b - 2]), `3 silent bars in a row at ${b}`);
+  const share = bars.filter(Boolean).length / bars.length;
+  assert.ok(share > 0.2 && share < 0.32, `share ${share}`);
+});
+
+test("gaps never move clicks and survive tempo changes", () => {
+  const plain = quarterPlan(120, { pattern: { subdivision: 2 } });
+  const gapped = plain.withGaps({ mode: "cycle", play: 1, mute: 1 });
+  const all = gapped.eventsIn(0, 8, { includeGaps: true });
+  assert.deepEqual(all.map((e) => e.time), plain.eventsIn(0, 8).map((e) => e.time));
+  const changed = gapped.changingTempoAt(T.makeTempo(90), { bar: 1, grid: 0 });
+  assert.equal(changed.isGapBar(1), true);
+  assert.deepEqual(changed.gaps, gapped.gaps);
+  // adjacent windows still never repeat or skip
+  let got = [];
+  for (let t = 0; t < 20; t += 0.137) got = got.concat(changed.eventsIn(t, Math.min(20, t + 0.137)));
+  assert.deepEqual(got, changed.eventsIn(0, 20));
+});

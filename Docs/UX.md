@@ -244,3 +244,17 @@ Allow repeating or stepping down. Log clean working tempo, perceived effort
 - The whole ladder is one timing plan; changes rebuild it from the next rest
   without moving any earlier click.
 - No automatic progression based on speed: the ladder stops at your top tempo.
+
+### J10 · Gap click (plan §07)
+- **Main screen:** Gap click **Off / Bars / Random** with a one-line summary
+  ("Play 2 bars, then 2 silent", "About 30% of bars silent · pattern #4821").
+- **Settings › Click › Gap click:** bars that play and silent bars (1–16, number
+  pad); chance of a silent bar (10–50%); **New pattern**; "Beat lights go dark
+  during silent bars" (on by default).
+- **Random rules:** never in the first 2 bars, never more than 2 silent bars in a
+  row; the same pattern number always gives the same gaps (reproducible sessions).
+- During a silent bar nothing sounds, the clock keeps running, the lights go dark
+  (if set) and a calm "Silent bar · keep going" label shows. The count-in always plays.
+- Changing gap settings while playing applies immediately without moving any click.
+- Presets remember gap settings; presets saved earlier load with gaps off.
+- Applies in Practice too (silent bars inside a ladder's play stages).

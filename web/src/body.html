@@ -52,6 +52,7 @@
         <span class="next-tag" id="next-tag">Next bar</span>
         <div class="beats" id="beats-preview" aria-label="Beats from the next bar"></div>
       </div>
+      <p class="gap-status" id="gap-status" hidden>Silent bar · keep going</p>
       <p class="hint">Tap a beat to change its accent: strong, group, normal, silent.</p>
     </section>
 
@@ -62,6 +63,11 @@
       </div>
       <fieldset class="field"><legend>Meter</legend><div class="chips" id="meter-chips"></div></fieldset>
       <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="sub-chips"></div></fieldset>
+      <fieldset class="field">
+        <legend>Gap click</legend>
+        <div class="chips" id="gap-chips"></div>
+        <p class="hint" id="gap-summary">Every bar sounds</p>
+      </fieldset>
       <div class="field">
         <span class="label" id="volume-label">Master volume</span>
         <div class="volume">
@@ -194,6 +200,22 @@
         </div>
         <fieldset class="field"><legend>Meter</legend><div class="chips" id="meter-chips-sheet"></div></fieldset>
         <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="sub-chips-sheet"></div></fieldset>
+        <fieldset class="field">
+          <legend>Gap click</legend>
+          <div class="chips" id="gap-chips-sheet"></div>
+          <p class="hint">Silent bars while the clock keeps running, to test your own time. The count-in always plays.</p>
+          <div class="gap-detail" id="gap-cycle" hidden>
+            <div class="num-field"><span>Bars that play</span><button type="button" class="num-button" id="gap-play">2</button></div>
+            <div class="num-field"><span>Silent bars</span><button type="button" class="num-button" id="gap-mute">2</button></div>
+          </div>
+          <div class="gap-detail gap-random" id="gap-random" hidden>
+            <span class="label">Chance of a silent bar</span>
+            <div class="chips" id="gap-percent-chips"></div>
+            <p class="hint">Never in the first 2 bars, never more than 2 in a row. Same pattern number, same gaps.</p>
+            <div class="gap-seed-row"><span>Pattern <strong id="gap-seed">#1000</strong></span><button type="button" class="btn" id="gap-reseed">New pattern</button></div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="gap-hide" checked> Beat lights go dark during silent bars</label>
+        </fieldset>
         <fieldset class="field"><legend>Count-in</legend><div class="chips" id="countin-chips"></div></fieldset>
         <fieldset class="field" id="countin-bars"><legend>Count-in length</legend><div class="chips" id="countin-bars-chips"></div></fieldset>
         <fieldset class="field"><legend>Tempo changes land on</legend><div class="chips" id="tempo-change-chips"></div></fieldset>

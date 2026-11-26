@@ -115,7 +115,8 @@
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, tempoChangeV: 2, sound: settings.sound, volume: settings.volume,
         accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
-        workspace: settings.workspace, routine: routineCfg, sessions, presets, presetId: settings.presetId, answers, notes: $("notes").value,
+        workspace: settings.workspace, routine: routineCfg, sessions, presets, presetId: settings.presetId,
+        gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -146,6 +147,13 @@
     concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "a",
     settingsTab: ["click", "sound", "look", "ipad", "test"].includes(stored.settingsTab) ? stored.settingsTab : "click",
     workspace: stored.workspace === "practice" ? "practice" : "click",
+    // Gap click (plan §07): off / cycle (play N bars, M silent) / random (seeded).
+    gapMode: ["off", "cycle", "random"].includes(stored.gapMode) ? stored.gapMode : "off",
+    gapPlay: Number.isInteger(stored.gapPlay) ? stored.gapPlay : 2,
+    gapMute: Number.isInteger(stored.gapMute) ? stored.gapMute : 2,
+    gapPercent: [10, 20, 30, 40, 50].includes(stored.gapPercent) ? stored.gapPercent : 30,
+    gapSeed: Number.isInteger(stored.gapSeed) ? stored.gapSeed : Math.floor(1000 + Math.random() * 9000),
+    gapHideLights: stored.gapHideLights ?? true,
     presetId: typeof stored.presetId === "string" ? stored.presetId : Array.isArray(stored.presets) ? null : "p-quick",
   };
   const answers = stored.answers || {};
@@ -158,7 +166,7 @@
 
   // Presets: named Quick Click setups (plan §08 "Preset"). Starter examples are
   // added once and can be deleted.
-  const PRESET_FIELDS = ["bpm", "meterId", "accents", "subdivision", "sound", "countInMode", "countInBars"];
+  const PRESET_FIELDS = ["bpm", "meterId", "accents", "subdivision", "sound", "countInMode", "countInBars", "gapMode", "gapPlay", "gapMute", "gapPercent", "gapSeed"];
   const presets = Array.isArray(stored.presets) ? stored.presets : [
     { id: "p-quick", name: "Quick Click", bpm: 120, meterId: "4/4", accents: null, subdivision: 1, sound: "wood", countInMode: "every", countInBars: 1 },
     { id: "p-pedal", name: "Double pedal eighths", bpm: 130, meterId: "4/4", accents: null, subdivision: 2, sound: "wood", countInMode: "every", countInBars: 1 },
@@ -171,7 +179,7 @@
     ctx: null, master: null, buffers: null,
     plan: null, scheduledUntil: 0, sources: new Set(), visual: [],
     pending: null, queued: null, nowNote: null,
-    hasStarted: false, barOffset: 0, elapsedBefore: 0,
+    hasStarted: false, barOffset: 0, elapsedBefore: 0, inGap: false,
     soundingPattern: null, catchingUp: false,
     worker: null, fallbackTimer: null, lastTick: 0,
     wakeLock: null, runStartPerf: 0, hiddenAt: null, missedAtHide: 0,
@@ -418,7 +426,7 @@
       const tempo = practice ? routineTempo(rt.stages[rt.resumeStage]) : currentTempo();
       const countIn = practice ? 1 : countInFor(isResume);
       if (practice) buildRoutinePlan(rt.resumeStage, eng.ctx.currentTime + START_DELAY);
-      else eng.plan = T.PlaybackPlan.click({ pattern, tempo, countInBars: countIn, startTime: eng.ctx.currentTime + START_DELAY });
+      else eng.plan = T.PlaybackPlan.click({ pattern, tempo, countInBars: countIn, startTime: eng.ctx.currentTime + START_DELAY, gaps: currentGaps() });
       eng.scheduledUntil = eng.plan.startTime;
       eng.visual = [];
       eng.pending = null;
@@ -460,6 +468,8 @@
     }
     eng.runStartPerf = 0;
     eng.soundingPattern = null;
+    eng.inGap = false;
+    $("gap-status").hidden = true;
     renderBeats();
   }
 
@@ -572,7 +582,13 @@
     const to = now + LOOKAHEAD;
     if (to <= from) return;
     const sounds = kitBuffers(settings.sound);
-    for (const e of eng.plan.eventsIn(from, to)) {
+    for (const e of eng.plan.eventsIn(from, to, { includeGaps: true })) {
+      if (e.gap) {
+        // Silent bar: nothing sounds; the beat lights still get the timing.
+        e.pattern = eng.plan.segments[e.segment].pattern;
+        eng.visual.push(e);
+        continue;
+      }
       const src = ctx.createBufferSource();
       src.buffer = pickTake(sounds, e.role === "countIn" ? "countIn" : e.level);
       src.connect(e.role !== "countIn" && e.level === L.sub ? eng.subGain : eng.master);
@@ -837,8 +853,15 @@
         eng.soundingPattern = latest.pattern;
         renderBeats();
       }
+      if (latest) {
+        const inGap = !!latest.gap;
+        if (inGap !== eng.inGap) {
+          eng.inGap = inGap;
+          $("gap-status").hidden = !inGap;
+        }
+      }
       if (latest && latest.sub === 0) {
-        eng.currentUnit = latest.unit;
+        eng.currentUnit = latest.gap && settings.gapHideLights ? -1 : latest.unit;
         eng.currentRole = latest.role;
         eng.currentBar = latest.bar;
         if (latest.role === "music" && eng.status === "countIn") setStatus("playing");
@@ -1108,7 +1131,7 @@
     lines.push(`  Tightest lead: ${Number.isFinite(stats.minHeadroom) ? (stats.minHeadroom * 1000).toFixed(1) + " ms" : "n/a"}`);
     lines.push(`  Audio vs system clock: ${stats.driftPpm === null ? "n/a" : stats.driftPpm.toFixed(1) + " ppm"}`);
     lines.push(`  Interruptions: ${stats.interruptions}`);
-    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, sound ${settings.sound} (accents: ${settings.accentStyle}, count-in: ${settings.countInSound}, subdivisions ${settings.subVolume}%), volume ${settings.volume}%, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}, play in silent mode ${settings.playOnSilent}`);
+    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, sound ${settings.sound} (accents: ${settings.accentStyle}, count-in: ${settings.countInSound}, subdivisions ${settings.subVolume}%), volume ${settings.volume}%, gap click ${settings.gapMode === "off" ? "off" : gapSummary()}${settings.gapMode !== "off" ? ` (lights ${settings.gapHideLights ? "hidden" : "shown"})` : ""}, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}, play in silent mode ${settings.playOnSilent}`);
     lines.push("", "Checklist");
     for (const c of CHECKS) for (const r of c.rows) lines.push(`  ${r.label}: ${answers[r.id] || "Not tried"}`);
     lines.push("", "Practice sessions (latest first)");
@@ -1419,7 +1442,7 @@
   function buildRoutinePlan(from, startTime) {
     const items = segmentsForStage(rt.stages, from, false);
     for (let i = from + 1; i < rt.stages.length; i++) items.push(...segmentsForStage(rt.stages, i, true));
-    eng.plan = new T.PlaybackPlan(items.map((x) => x.seg), startTime);
+    eng.plan = new T.PlaybackPlan(items.map((x) => x.seg), startTime, { gaps: currentGaps() });
     rt.meta = items.map((x) => x.meta);
     rt.current = null;
     indexPlays();
@@ -1517,7 +1540,7 @@
     const cut = nextIdx >= 0 ? nextIdx : plan.segmentCount;
     const tail = [];
     for (let i = cur.stage + 1; i < stages.length; i++) tail.push(...segmentsForStage(stages, i, true));
-    eng.plan = new T.PlaybackPlan(plan.segments.slice(0, cut).concat(tail.map((x) => x.seg)), plan.startTime);
+    eng.plan = new T.PlaybackPlan(plan.segments.slice(0, cut).concat(tail.map((x) => x.seg)), plan.startTime, { gaps: plan.gaps });
     rt.meta = rt.meta.slice(0, cut).concat(tail.map((x) => x.meta));
     rt.stages = stages;
     rt.log = rt.log.slice(0, cur.stage + 1).concat(stages.slice(cur.stage + 1).map((tempo) => ({ tempo, started: false, completed: false, effort: null, clean: false })));
@@ -1725,15 +1748,62 @@
     $("status-meta").textContent = `${eng.ctx ? eng.ctx.sampleRate / 1000 + " kHz" : "Audio off"} · Web Audio clock · settings saved on this device`;
   }
 
+  // ---------- gap click ----------
+  function currentGaps() {
+    if (settings.gapMode === "cycle") return { mode: "cycle", play: settings.gapPlay, mute: settings.gapMute };
+    if (settings.gapMode === "random") return { mode: "random", percent: settings.gapPercent, seed: settings.gapSeed };
+    return { mode: "off" };
+  }
+  function gapSummary() {
+    if (settings.gapMode === "cycle") return `Play ${settings.gapPlay} bar${settings.gapPlay > 1 ? "s" : ""}, then ${settings.gapMute} silent`;
+    if (settings.gapMode === "random") return `About ${settings.gapPercent}% of bars silent · pattern #${settings.gapSeed}`;
+    return "Every bar sounds";
+  }
+  /** Apply new gap settings now: same timing, so nothing already heard moves. */
+  function gapsChanged() {
+    if ((isRunning() || eng.status === "paused") && eng.plan) eng.plan = eng.plan.withGaps(currentGaps());
+    log(`Gap click: ${gapSummary()}`);
+    renderGap();
+    saveStore();
+  }
+  function renderGap() {
+    const modes = [{ id: "off", label: "Off" }, { id: "cycle", label: "Bars" }, { id: "random", label: "Random" }];
+    const pick = (m) => { if (m.id === settings.gapMode) return; settings.gapMode = m.id; gapsChanged(); };
+    renderChips($("gap-chips"), modes, (m) => m.id === settings.gapMode, (m) => { pick(m); });
+    renderChips($("gap-chips-sheet"), modes, (m) => m.id === settings.gapMode, (m) => { pick(m); });
+    $("gap-summary").textContent = gapSummary();
+    $("gap-cycle").hidden = settings.gapMode !== "cycle";
+    $("gap-random").hidden = settings.gapMode !== "random";
+    $("gap-play").textContent = String(settings.gapPlay);
+    $("gap-mute").textContent = String(settings.gapMute);
+    $("gap-seed").textContent = `#${settings.gapSeed}`;
+    renderChips($("gap-percent-chips"), [10, 20, 30, 40, 50].map((n) => ({ id: n, label: `${n}%` })), (x) => x.id === settings.gapPercent, (x) => { settings.gapPercent = x.id; gapsChanged(); });
+    $("gap-hide").checked = settings.gapHideLights;
+  }
+  for (const [id, key, title] of [["gap-play", "gapPlay", "Bars that play"], ["gap-mute", "gapMute", "Silent bars"]]) {
+    $(id).addEventListener("click", (e) => openKeypad({
+      title, value: settings[key], min: 1, max: 16, decimals: 0, unit: "bars", anchor: e.currentTarget,
+      onSet: (v) => { settings[key] = v; gapsChanged(); },
+    }));
+  }
+  $("gap-reseed").addEventListener("click", () => { settings.gapSeed = Math.floor(1000 + Math.random() * 9000); gapsChanged(); });
+  $("gap-hide").addEventListener("change", (e) => { settings.gapHideLights = e.target.checked; renderGap(); saveStore(); });
+
   // ---------- presets ----------
   const presetUI = { editing: false, armedDelete: null, renaming: null, lastFocus: null, anchor: null };
   const snapshot = () => Object.fromEntries(PRESET_FIELDS.map((k) => [k, settings[k] ?? null]));
-  const samePreset = (p) => PRESET_FIELDS.every((k) => JSON.stringify(p[k] ?? null) === JSON.stringify(settings[k] ?? null));
+  // Presets saved before a field existed get its default (gaps off); the random
+  // pattern number only matters when the preset has one.
+  const PRESET_DEFAULTS = { gapMode: "off", gapPlay: 2, gapMute: 2, gapPercent: 30 };
+  const presetValue = (p, k) => (p[k] !== undefined ? p[k] : PRESET_DEFAULTS[k]);
+  const samePreset = (p) => PRESET_FIELDS.every((k) => presetValue(p, k) === undefined || JSON.stringify(presetValue(p, k) ?? null) === JSON.stringify(settings[k] ?? null));
   const currentPreset = () => presets.find((p) => p.id === settings.presetId) || null;
   function presetSummary(p) {
     const m = METERS.find((x) => x.id === p.meterId);
     const kit = SOUNDS.find((k) => k.id === p.sound);
-    return `${fmtBpm(p.bpm)} · ${m ? (m.label || m.id) + (m.note ? ` ${m.note}` : "") : p.meterId}${p.subdivision > 1 ? ` ÷${p.subdivision}` : ""} · ${kit ? kit.label : p.sound}`;
+    const gm = presetValue(p, "gapMode");
+    const gaps = gm === "cycle" ? ` · gaps ${presetValue(p, "gapPlay")}/${presetValue(p, "gapMute")}` : gm === "random" ? ` · gaps ${presetValue(p, "gapPercent")}%` : "";
+    return `${fmtBpm(p.bpm)} · ${m ? (m.label || m.id) + (m.note ? ` ${m.note}` : "") : p.meterId}${p.subdivision > 1 ? ` ÷${p.subdivision}` : ""} · ${kit ? kit.label : p.sound}${gaps}`;
   }
   function renderPresetCurrent() {
     const p = currentPreset();
@@ -1791,11 +1861,16 @@
     $("presets-edit").textContent = presetUI.editing ? "Finish editing" : "Edit";
   }
   function loadPreset(p) {
-    for (const k of PRESET_FIELDS) if (p[k] !== undefined) settings[k] = Array.isArray(p[k]) ? p[k].slice() : p[k];
+    for (const k of PRESET_FIELDS) {
+      const v = presetValue(p, k);
+      if (v !== undefined) settings[k] = Array.isArray(v) ? v.slice() : v;
+    }
     settings.presetId = p.id;
     log(`Preset loaded: ${p.name}`);
     renderTempo();
     renderSetup();
+    renderGap();
+    if ((isRunning() || eng.status === "paused") && eng.plan) eng.plan = eng.plan.withGaps(currentGaps());
     if (isRunning()) queueChange("pattern");
     renderBeats();
     renderTempoNote();
@@ -2055,6 +2130,7 @@
   renderSetup();
   renderChecks();
   renderPresets();
+  renderGap();
   renderMetrics();
   renderAwake();
   updateAwake();

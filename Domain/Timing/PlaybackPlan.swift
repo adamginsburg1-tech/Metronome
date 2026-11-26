@@ -1,3 +1,42 @@
+import Foundation
+
+/// Gap click (plan §07): silent music bars while the clock keeps running.
+/// Count-in bars are never silent.
+public enum GapPattern: Sendable, Hashable {
+    case off
+    /// Play `play` bars, then `mute` silent bars, repeating.
+    case cycle(play: Int, mute: Int)
+    /// Each bar silent with `percent` chance, reproducible from `seed`; never in the
+    /// first `warmUp` bars and never more than `maxInARow` silent bars in a row.
+    case random(percent: Int, seed: UInt32, warmUp: Int = 2, maxInARow: Int = 2)
+
+    /// Deterministic 0..<1 from (seed, bar); identical to `gapRandom` in web/src/timing.js.
+    public static func random01(seed: UInt32, bar: Int) -> Double {
+        var t = seed &+ UInt32(truncatingIfNeeded: bar + 1) &* 0x6D2B_79F5
+        t = (t ^ (t >> 15)) &* (t | 1)
+        t ^= t &+ ((t ^ (t >> 7)) &* (t | 61))
+        return Double(t ^ (t >> 14)) / 4_294_967_296
+    }
+}
+
+/// Memo of random gap decisions (each depends on the bars before it).
+final class GapMemo: @unchecked Sendable {
+    private var bits: [Bool] = []
+    private let lock = NSLock()
+
+    func isGap(_ bar: Int, percent: Int, seed: UInt32, warmUp: Int, maxInARow: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        while bits.count <= bar {
+            let b = bits.count
+            var gap = b >= warmUp && GapPattern.random01(seed: seed, bar: b) < Double(percent) / 100
+            if gap && b >= maxInARow && bits[(b - maxInARow)..<b].allSatisfy({ $0 }) { gap = false }
+            bits.append(gap)
+        }
+        return bits[bar]
+    }
+}
+
 /// Why a segment exists. The audio layer can give count-ins their own sound.
 public enum SegmentRole: String, Sendable, Hashable {
     case countIn
@@ -65,6 +104,8 @@ public struct ClickEvent: Sendable, Hashable, CustomStringConvertible {
     public let level: AccentLevel
     public let role: SegmentRole
     public let segmentIndex: Int
+    /// In a gap bar: not sounded (only returned with `includeGaps`).
+    public var gap: Bool = false
 
     public var position: BarPosition { BarPosition(bar: bar, grid: grid) }
 
@@ -109,10 +150,12 @@ public struct PlaybackPlan: Sendable {
     public let startFrame: Int64
     /// Segments normalized to event counts (`bars` is always nil here).
     public let segments: [PlaybackSegment]
+    public let gaps: GapPattern
+    private let gapMemo = GapMemo()
 
     private let resolved: [ResolvedSegment]
 
-    public init(sampleRate: Int, segments: [PlaybackSegment], startFrame: Int64 = 0) throws {
+    public init(sampleRate: Int, segments: [PlaybackSegment], startFrame: Int64 = 0, gaps: GapPattern = .off) throws {
         guard (8_000...384_000).contains(sampleRate) else {
             throw TimingError.invalidSampleRate(sampleRate)
         }
@@ -171,6 +214,7 @@ public struct PlaybackPlan: Sendable {
         self.sampleRate = sampleRate
         self.startFrame = startFrame
         self.segments = normalized
+        self.gaps = gaps
     }
 
     /// Standard metronome: optional count-in bars (units only), then the pattern until stopped.
@@ -179,7 +223,8 @@ public struct PlaybackPlan: Sendable {
         tempo: Tempo,
         countInBars: Int = 0,
         sampleRate: Int,
-        startFrame: Int64 = 0
+        startFrame: Int64 = 0,
+        gaps: GapPattern = .off
     ) throws -> PlaybackPlan {
         var segments: [PlaybackSegment] = []
         if countInBars > 0 {
@@ -188,7 +233,23 @@ public struct PlaybackPlan: Sendable {
             segments.append(PlaybackSegment(pattern: countIn, tempo: tempo, bars: countInBars, role: .countIn))
         }
         segments.append(PlaybackSegment(pattern: pattern, tempo: tempo))
-        return try PlaybackPlan(sampleRate: sampleRate, segments: segments, startFrame: startFrame)
+        return try PlaybackPlan(sampleRate: sampleRate, segments: segments, startFrame: startFrame, gaps: gaps)
+    }
+
+    /// True when music bar `bar` is a silent gap bar.
+    public func isGapBar(_ bar: Int) -> Bool {
+        guard bar >= 0 else { return false }
+        switch gaps {
+        case .off: return false
+        case let .cycle(play, mute): return bar % (max(1, play) + max(1, mute)) >= max(1, play)
+        case let .random(percent, seed, warmUp, maxInARow):
+            return gapMemo.isGap(bar, percent: percent, seed: seed, warmUp: warmUp, maxInARow: maxInARow)
+        }
+    }
+
+    /// Same timing, different gaps: earlier clicks stay where they are.
+    public func withGaps(_ gaps: GapPattern) throws -> PlaybackPlan {
+        try PlaybackPlan(sampleRate: sampleRate, segments: segments, startFrame: startFrame, gaps: gaps)
     }
 
     // MARK: Queries
@@ -200,8 +261,9 @@ public struct PlaybackPlan: Sendable {
     }
 
     /// All audible events with `frames.lowerBound <= frame < frames.upperBound`, in order.
-    /// Querying adjacent windows never repeats or skips an event.
-    public func events(in frames: Range<Int64>) -> [ClickEvent] {
+    /// Querying adjacent windows never repeats or skips an event. With
+    /// `includeGaps`, clicks in gap bars are returned too, marked `gap`.
+    public func events(in frames: Range<Int64>, includeGaps: Bool = false) -> [ClickEvent] {
         var result: [ClickEvent] = []
         forEachGridPoint(in: frames) { segmentIndex, k, frame in
             let item = resolved[segmentIndex]
@@ -211,15 +273,19 @@ public struct PlaybackPlan: Sendable {
             let gridIndex = Int(g % perBar)
             let level = pattern.level(atGridIndex: gridIndex)
             guard level != .muted else { return }
+            let bar = item.firstBar + Int(g / perBar)
+            let gap = item.segment.role == .music && isGapBar(bar)
+            if gap && !includeGaps { return }
             result.append(ClickEvent(
                 frame: frame,
-                bar: item.firstBar + Int(g / perBar),
+                bar: bar,
                 unit: gridIndex / pattern.subdivision,
                 subdivision: gridIndex % pattern.subdivision,
                 grid: gridIndex,
                 level: level,
                 role: item.segment.role,
-                segmentIndex: segmentIndex
+                segmentIndex: segmentIndex,
+                gap: gap
             ))
         }
         return result
@@ -285,7 +351,7 @@ public struct PlaybackPlan: Sendable {
             try transform(&tail[i])
             tail[i].bars = nil
         }
-        return try PlaybackPlan(sampleRate: sampleRate, segments: newSegments + tail, startFrame: startFrame)
+        return try PlaybackPlan(sampleRate: sampleRate, segments: newSegments + tail, startFrame: startFrame, gaps: gaps)
     }
 
     /// Same as `changing(at:)` on a bar line.

@@ -65,7 +65,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Interval ladder: setup, live stages, repeat / step down, effort and clean
   rating, summary, saved sessions on device
 - ☐ **Owner:** run a real double-pedal session; check stage changes (exit gate)
-- ☐ Gap click (muted bars/beats, optional random gaps with a seed)
+- ☑ Gap click: bars cycle or seeded random, lights option, presets, both cores (D-027)
 - ☐ Saved routines (more than one ladder; the other starter routines in plan §07)
 - ☐ Port `segmentSpan` to the Swift core
 

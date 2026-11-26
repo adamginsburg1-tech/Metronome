@@ -257,3 +257,18 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
 - **Keyboard:** ↑ then Shift+↑ took 120 → 126.
 - **Regression:** practice ladder, immediate changes, settings sheet and
   recorded kits (0 missed) all still pass; no console errors.
+
+## 2026-11-26 · Gap click
+
+- **JS core:** 34 tests, 0 failures. New: cycle gaps (count-in never silent;
+  gap clicks flagged with includeGaps), random gaps reproducible from the seed,
+  no 3 silent bars in a row over 5,000 bars, warm-up respected, share 20–32% at
+  30%; gaps never move clicks and survive tempo changes; adjacent windows still exact.
+- **Swift core:** 38 tests, 0 failures. New `GapTests`, including the identical
+  64-bar random sequence as the JS core (seed 12345, 30%).
+- **Random function:** uniform over 20,000 bars (each tenth ≈ 10%) for three seeds.
+- **Browser (iPad Pro 11 emulation, 240 BPM = 1 s bars):** Bars mode sampled every
+  250 ms: 2 s lit, 2 s "Silent bar" with lights dark, then lit again; switching
+  to Random, 50% and a new pattern while playing applied at once; a preset saved
+  with gaps shows "· gaps 50%"; loading an older preset turned gaps off;
+  regression checks (presets, practice, immediate changes) pass; no errors.

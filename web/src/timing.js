@@ -105,9 +105,46 @@
     return grids;
   }
 
+  /**
+   * Gap click (plan §07): silent music bars while the clock keeps running.
+   *   { mode: "off" }
+   *   { mode: "cycle", play: 2, mute: 2 }            play 2 bars, 2 silent, repeat
+   *   { mode: "random", percent: 30, seed: 12345 }   each bar silent with that chance
+   * Random gaps never start before `warmUp` bars (default 2) and never run longer
+   * than `maxInARow` bars (default 2). Count-in bars are never silent.
+   */
+  function normalizeGaps(g) {
+    if (!g || g.mode === "off" || !g.mode) return Object.freeze({ mode: "off" });
+    if (g.mode === "cycle") {
+      const play = Math.max(1, Math.round(g.play || 1)), mute = Math.max(1, Math.round(g.mute || 1));
+      return Object.freeze({ mode: "cycle", play, mute });
+    }
+    if (g.mode === "random") {
+      return Object.freeze({
+        mode: "random",
+        percent: Math.min(90, Math.max(1, Math.round(g.percent || 25))),
+        seed: (g.seed >>> 0) || 1,
+        warmUp: Math.max(0, Math.round(g.warmUp ?? 2)),
+        maxInARow: Math.max(1, Math.round(g.maxInARow ?? 2)),
+      });
+    }
+    throw new TimingError(`unknown gap mode ${g.mode}`);
+  }
+  /** Deterministic 0…1 from (seed, bar); identical in the Swift core. */
+  function gapRandom(seed, bar) {
+    let t = (seed + Math.imul(bar + 1, 0x6d2b79f5)) >>> 0;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
   class PlaybackPlan {
-    /** @param segments list of segments (see makeSegment); @param startTime seconds */
-    constructor(segments, startTime = 0) {
+    /**
+     * @param segments list of segments (see makeSegment)
+     * @param startTime seconds
+     * @param options { gaps } (see normalizeGaps)
+     */
+    constructor(segments, startTime = 0, options = {}) {
       if (!segments.length) throw new TimingError("a plan needs at least one segment");
       // Normalize to event counts, then resolve exact anchors and bar positions.
       const normalized = [];
@@ -150,18 +187,43 @@
       for (const r of resolved) { r.firstBar = r.barIndex - countInBars; Object.freeze(r); }
       this.segments = Object.freeze(normalized);
       this.startTime = startTime;
+      this.gaps = normalizeGaps(options.gaps);
+      this._gapCache = [];
       this._r = Object.freeze(resolved);
       Object.freeze(this);
     }
 
-    static click({ pattern, tempo, countInBars = 0, startTime = 0 }) {
+    static click({ pattern, tempo, countInBars = 0, startTime = 0, gaps }) {
       const segments = [];
       if (countInBars > 0) {
         const audible = pattern.accents.map((l) => (l === LEVEL.muted ? LEVEL.normal : l));
         segments.push(makeSegment({ pattern: makePattern({ meter: pattern.meter, subdivision: 1, accents: audible }), tempo, bars: countInBars, role: "countIn" }));
       }
       segments.push(makeSegment({ pattern, tempo }));
-      return new PlaybackPlan(segments, startTime);
+      return new PlaybackPlan(segments, startTime, { gaps });
+    }
+
+    /** True when music bar `bar` is a silent gap bar. */
+    isGapBar(bar) {
+      const g = this.gaps;
+      if (g.mode === "off" || bar < 0) return false;
+      if (g.mode === "cycle") return bar % (g.play + g.mute) >= g.play;
+      const cache = this._gapCache;
+      for (let b = cache.length; b <= bar; b++) {
+        let gap = b >= g.warmUp && gapRandom(g.seed, b) < g.percent / 100;
+        if (gap && b >= g.maxInARow) {
+          let run = 0;
+          for (let k = b - g.maxInARow; k < b; k++) if (cache[k]) run++;
+          if (run === g.maxInARow) gap = false;
+        }
+        cache.push(gap);
+      }
+      return cache[bar];
+    }
+
+    /** Same timing, different gaps: earlier clicks stay where they are. */
+    withGaps(gaps) {
+      return new PlaybackPlan(this.segments, this.startTime, { gaps });
     }
 
     get endTime() {
@@ -169,8 +231,12 @@
       return last.count === Infinity ? null : last.anchor + last.count * last.step;
     }
 
-    /** Audible events with t0 <= time < t1, in order. Adjacent windows never repeat or skip. */
-    eventsIn(t0, t1) {
+    /**
+     * Audible events with t0 <= time < t1, in order. Adjacent windows never repeat
+     * or skip. With { includeGaps: true }, clicks in gap bars are included with
+     * `gap: true` (for the beat lights) instead of being left out.
+     */
+    eventsIn(t0, t1, { includeGaps = false } = {}) {
       const out = [];
       if (!(t1 > t0)) return out;
       for (let i = 0; i < this._r.length; i++) {
@@ -185,10 +251,13 @@
           const gi = g % p.eventsPerBar;
           const level = levelAt(p, gi);
           if (level === LEVEL.muted) continue;
+          const bar = r.firstBar + Math.floor(g / p.eventsPerBar);
+          const gap = r.segment.role === "music" && this.isGapBar(bar);
+          if (gap && !includeGaps) continue;
           out.push({
-            time: t, bar: r.firstBar + Math.floor(g / p.eventsPerBar),
+            time: t, bar,
             unit: Math.floor(gi / p.subdivision), sub: gi % p.subdivision, grid: gi,
-            level, role: r.segment.role, segment: i,
+            level, role: r.segment.role, segment: i, gap,
           });
         }
       }
@@ -245,7 +314,7 @@
         head.push(makeSegment({ ...tail[0], events: loc.k }));
         if (tail[0].events !== null) tail[0].events -= loc.k;
       }
-      return new PlaybackPlan(head.concat(tail.map((s) => makeSegment({ ...transform(s), bars: null }))), this.startTime);
+      return new PlaybackPlan(head.concat(tail.map((s) => makeSegment({ ...transform(s), bars: null }))), this.startTime, { gaps: this.gaps });
     }
 
     changing(fromBar, transform) { return this.changingAt({ bar: fromBar, grid: 0 }, transform); }
@@ -278,5 +347,5 @@
     return k;
   }
 
-  return { LEVEL, LEVEL_NAMES, TEMPO_MIN, TEMPO_MAX, TimingError, makeMeter, defaultAccents, makePattern, levelAt, makeTempo, makeSegment, beatGrids, sameGrid, PlaybackPlan };
+  return { LEVEL, LEVEL_NAMES, TEMPO_MIN, TEMPO_MAX, TimingError, makeMeter, defaultAccents, makePattern, levelAt, makeTempo, makeSegment, beatGrids, sameGrid, gapRandom, PlaybackPlan };
 });

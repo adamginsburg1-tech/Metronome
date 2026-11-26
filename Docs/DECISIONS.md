@@ -224,3 +224,12 @@ Hardware keys supported. The text field is removed.
   Update kept separate; two-tap delete; three starter presets.
 - **Number pad** generalized (range, decimals, unit) and used for the Practice
   setup values as well as the tempo.
+
+## D-027 · Gap click in the timing core (2026-11-26)
+Gaps are a property of the plan (`gaps` option / `GapPattern`), not of the
+pattern: `cycle(play, mute)` or `random(percent, seed, warmUp 2, maxInARow 2)`.
+Gap decisions are per music bar, so timing never changes and `withGaps` can swap
+them mid-run. The random function is a 32-bit hash implemented identically in
+JS and Swift; both test suites check the same 64-bar sequence for seed 12345 at 30%.
+Gap clicks are still returned (flagged) for the beat lights when asked, so the
+lights can stay on or go dark.
