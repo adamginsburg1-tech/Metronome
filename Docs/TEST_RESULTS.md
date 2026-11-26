@@ -119,3 +119,13 @@ bar 1" while running, "Paused · resumes at bar 2" when paused; the status strip
 shows the last event and "44.1 kHz · Web Audio clock…"; Start is green and turns
 red as Stop; LCD and strip are hidden in the other concepts. No overflow at
 390 px; no console errors. Screenshots reviewed at 1180×820 and 390×844.
+
+## 2026-11-26 · Settings sheet (headless Chromium)
+
+Main screen shows only Meter, Subdivision and Master volume beside the tempo.
+Settings opens with focus on its title; count-in change applied; Look tab
+switched to D live; **Stop worked with the sheet open**; Test tab shows the
+counters; Esc closed it and returned focus to the Settings button; it reopened
+on the last tab; the backdrop closes it; a meter picked in the sheet updates the
+main screen; Stage hides the quick panel. No overflow at 390 px; no console
+errors. Screenshots reviewed at 1180×820 and 390×844.

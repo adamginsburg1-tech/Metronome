@@ -142,3 +142,12 @@ compared on the same flows. Takes the reference's visual language (LCD,
 coloured transport keys, tan/green-lit keycaps, mono uppercase, knob, status
 strip), not its exact layout. Setlist and sound-layer panels wait for the
 Library and Groove milestones.
+
+## D-019 · Settings sheet; keep the playing surface clean (owner, 2026-11-26)
+**Decision:** Main screen: tempo, ±/TAP, beats, meter, subdivision, volume.
+Everything else, including the design-concept switch and the test results,
+moves to a Settings sheet with tabs Click / Look / iPad / Test. Meter and
+subdivision also appear in Settings so the Stage look (which hides them) can
+still change them.
+**Why non-modal:** the plan's rule that Stop is always reachable. The sheet
+ends above the transport bar instead of covering the whole screen.

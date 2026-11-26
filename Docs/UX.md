@@ -112,6 +112,20 @@ on the bar line.
 - Turning it off lets silent mode mute the click, and lets other apps' music
   carry on. It applies from the next Start.
 
+### J8 · Settings
+- The main screen holds only what you touch while playing: tempo, ±/TAP, the
+  beat row, meter, subdivision and volume. (Stage look: tempo, ±/TAP and beats only.)
+- **Settings** (top right) opens a sheet with four tabs:
+  - **Click:** meter, subdivision, count-in (when and how long), where tempo
+    changes land, sound.
+  - **Look:** design concepts A–D.
+  - **iPad:** keep screen awake, play in silent mode, stop when the output changes.
+  - **Test:** counters, checklist, notes, event log, Copy report.
+- The sheet stops above the transport, so Start/Stop/Pause keep working while
+  it's open; the click keeps playing and changes queue as usual.
+- Done, Esc or tapping outside closes it; focus returns to the Settings button.
+  It reopens on the last tab used.
+
 ## Messages
 
 Every message says what happened, what POCKET did, and what to do, in under

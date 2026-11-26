@@ -45,9 +45,40 @@ button { cursor: pointer; }
   padding-block: 16px 12px;
 }
 .topbar-end { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.concepts { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-low); }
-.concepts .chip { min-height: 38px; border: 0; background: transparent; font-size: 13px; padding: 0 10px; white-space: nowrap; }
-.concepts .chip[aria-pressed="true"] { background: var(--surface); color: var(--text); }
+.settings-btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.settings-btn[aria-expanded="true"] { border-color: var(--info); color: var(--info); }
+
+/* Settings sheet: right-hand panel on wide screens, full width on phones.
+   Bottom is set in JS to the transport's height so Stop stays reachable. */
+.scrim { position: fixed; inset: 0; z-index: 7; background: rgb(0 0 0 / 0.5); }
+.sheet {
+  position: fixed; z-index: 8; top: 0; right: 0; width: min(480px, 100%);
+  display: flex; flex-direction: column;
+  background: var(--surface-low); border-left: 1px solid var(--line);
+  box-shadow: -12px 0 32px rgb(0 0 0 / 0.4);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.sheet[hidden] { display: none; }
+.sheet-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px max(16px, env(safe-area-inset-right, 0px)) 10px 20px;
+}
+.sheet-head h2 { margin: 0; font-size: 18px; letter-spacing: 0.04em; outline: none; }
+.tabs { display: flex; gap: 4px; padding: 0 16px 10px 20px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs [role="tab"] {
+  min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent;
+  background: none; color: var(--muted); font-weight: 600; white-space: nowrap;
+}
+.tabs [role="tab"][aria-selected="true"] { color: var(--text); background: var(--surface); border-color: var(--line); box-shadow: inset 0 -2px 0 var(--accent); }
+.sheet-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 18px max(16px, env(safe-area-inset-right, 0px)) 24px 20px; }
+.pane { display: flex; flex-direction: column; gap: 18px; }
+.pane[hidden] { display: none; }
+.concept-list { flex-direction: column; }
+.concept-list .chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 60px; padding: 10px 14px; text-align: left; width: 100%; }
+.concept-list .chip small { margin-left: 0; font-size: 12px; }
+@media (max-width: 600px) {
+  .sheet { top: calc(env(safe-area-inset-top, 0px) + 24px); border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; padding-top: 0; }
+}
 .brand { display: flex; align-items: baseline; gap: 10px; }
 .brand strong { font-size: 20px; letter-spacing: 0.14em; font-weight: 800; }
 .brand span { color: var(--muted); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -160,7 +191,7 @@ button { cursor: pointer; }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 
 /* Setup */
-.setup { display: flex; flex-direction: column; gap: 18px; }
+.quick { display: flex; flex-direction: column; gap: 18px; align-self: start; }
 .field { display: flex; flex-direction: column; gap: 8px; border: 0; margin: 0; padding: 0; min-width: 0; }
 .field legend, .field > .label { padding: 0; margin-bottom: 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -353,8 +384,7 @@ button { cursor: pointer; }
 [data-concept="c"] .beat.on { background: var(--accent); border-color: var(--accent); }
 [data-concept="c"] .beat.on[data-role="countIn"] { background: var(--info); border-color: var(--info); }
 [data-concept="c"] .hint { display: none; }
-[data-concept="c"] .stage-toggle { display: block; align-self: center; }
-[data-concept="c"]:not([data-stage-open]) .setup, [data-concept="c"]:not([data-stage-open]) .results { display: none; }
+[data-concept="c"] .quick { display: none; }
 [data-concept="c"] .start { min-height: 88px; font-size: 26px; border-radius: 16px; }
 [data-concept="c"] .transport .secondary { min-height: 88px; min-width: 150px; font-size: 20px; border-radius: 16px; }
 [data-concept="c"] .transport { border-top: 0; }

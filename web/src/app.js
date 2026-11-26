@@ -50,10 +50,10 @@
   const COUNT_IN_MODES = [{ id: "every", label: "Every start" }, { id: "first", label: "First start only" }, { id: "off", label: "Off" }];
   const COUNT_IN_BARS = [1, 2];
   const CONCEPTS = [
-    { id: "a", label: "A · Studio", name: "Studio instrument" },
-    { id: "b", label: "B · Workshop", name: "Analog workshop" },
-    { id: "c", label: "C · Stage", name: "Minimal stage" },
-    { id: "d", label: "D · Console", name: "Hardware console (owner reference)" },
+    { id: "a", label: "A · Studio", name: "Studio instrument", note: "Graphite and amber, flat modules, workspace rail" },
+    { id: "b", label: "B · Workshop", name: "Analog workshop", note: "Warm hardware, ivory labels, indicator lamps, tempo dial" },
+    { id: "c", label: "C · Stage", name: "Minimal stage", note: "Huge numbers, big keys, nothing else on screen" },
+    { id: "d", label: "D · Console", name: "Hardware console (owner reference)", note: "Green display, coloured keys, knob, status strip" },
   ];
   const TEMPO_CHANGE = [{ id: "beat", label: "Next beat" }, { id: "bar", label: "Next bar" }];
   const SOUNDS = [{ id: "wood", label: "Wood" }, { id: "beep", label: "Beep" }];
@@ -104,7 +104,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify({
         bpm: settings.bpm, meterId: settings.meterId, accents: settings.accents, subdivision: settings.subdivision,
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, sound: settings.sound, volume: settings.volume,
-        awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, answers, notes: $("notes").value,
+        awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -128,6 +128,7 @@
     playOnSilent: stored.playOnSilent ?? true,
     // Visual concept being compared (plan §04): a Studio, b Workshop, c Stage.
     concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "a",
+    settingsTab: ["click", "look", "ipad", "test"].includes(stored.settingsTab) ? stored.settingsTab : "click",
   };
   const answers = stored.answers || {};
 
@@ -833,8 +834,11 @@
   }
   const describeLevel = (l) => ({ [L.downbeat]: "strong accent", [L.group]: "group accent", [L.normal]: "normal", [L.muted]: "silent" })[l];
 
-  function chip(container, items, isOn, onPick) {
-    const el = $(container);
+  /** Render a row of toggle chips into one or more containers (main screen and Settings). */
+  function chip(containers, items, isOn, onPick) {
+    for (const id of [].concat(containers)) renderChips($(id), items, isOn, onPick);
+  }
+  function renderChips(el, items, isOn, onPick) {
     el.textContent = "";
     for (const item of items) {
       const b = document.createElement("button");
@@ -849,14 +853,14 @@
     }
   }
   function renderSetup() {
-    chip("meter-chips", METERS.map((m) => ({ ...m, label: m.label || m.id })), (m) => m.id === settings.meterId, (m) => {
+    chip(["meter-chips", "meter-chips-sheet"], METERS.map((m) => ({ ...m, label: m.label || m.id })), (m) => m.id === settings.meterId, (m) => {
       if (m.id === settings.meterId) return;
       settings.meterId = m.id;
       settings.accents = null;
       renderTempo(); queueChange("pattern"); renderBeats();
     });
     const subNames = { 1: "off", 2: "÷2", 3: "÷3", 4: "÷4", 5: "÷5", 6: "÷6", 7: "÷7" };
-    chip("sub-chips", SUBDIVISIONS.map((n) => ({ id: n, label: n === 1 ? "Off" : subNames[n] })), (s) => s.id === settings.subdivision, (s) => {
+    chip(["sub-chips", "sub-chips-sheet"], SUBDIVISIONS.map((n) => ({ id: n, label: n === 1 ? "Off" : subNames[n] })), (s) => s.id === settings.subdivision, (s) => {
       settings.subdivision = s.id; queueChange("pattern"); renderBeats();
     });
     chip("countin-chips", COUNT_IN_MODES, (c) => c.id === settings.countInMode, (c) => { settings.countInMode = c.id; });
@@ -1187,13 +1191,60 @@
     document.documentElement.dataset.concept = settings.concept;
     saveStore();
   }
-  $("stage-toggle").addEventListener("click", () => {
-    const root = document.documentElement;
-    const open = !("stageOpen" in root.dataset);
-    if (open) root.dataset.stageOpen = ""; else delete root.dataset.stageOpen;
-    $("stage-toggle").setAttribute("aria-expanded", String(open));
-    $("stage-toggle").textContent = open ? "Hide setup and test results" : "Show setup and test results";
-  });
+  // ---------- settings sheet ----------
+  // Non-modal on purpose: it stops above the transport so Stop always works
+  // while it's open (Docs/UX.md principle 4). Esc, Done or the backdrop close it.
+  const TABS = ["click", "look", "ipad", "test"];
+  let lastFocus = null;
+  function fitSheet() {
+    const h = document.querySelector(".transport").offsetHeight;
+    $("settings").style.bottom = `${h}px`;
+    $("settings-scrim").style.bottom = `${h}px`;
+  }
+  function openSettings(tab) {
+    lastFocus = document.activeElement;
+    fitSheet();
+    $("settings").hidden = false;
+    $("settings-scrim").hidden = false;
+    $("open-settings").setAttribute("aria-expanded", "true");
+    selectTab(tab || settings.settingsTab || "click", false);
+    $("settings-title").setAttribute("tabindex", "-1");
+    $("settings-title").focus();
+  }
+  function closeSettings() {
+    if ($("settings").hidden) return;
+    $("settings").hidden = true;
+    $("settings-scrim").hidden = true;
+    $("open-settings").setAttribute("aria-expanded", "false");
+    if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+  }
+  function selectTab(name, focus = true) {
+    for (const t of TABS) {
+      const on = t === name;
+      const tab = $(`tab-${t}`);
+      tab.setAttribute("aria-selected", String(on));
+      tab.tabIndex = on ? 0 : -1;
+      $(`pane-${t}`).hidden = !on;
+      if (on && focus) tab.focus();
+    }
+    settings.settingsTab = name;
+    $("settings").querySelector(".sheet-body").scrollTop = 0;
+    saveStore();
+  }
+  $("open-settings").addEventListener("click", () => ($("settings").hidden ? openSettings() : closeSettings()));
+  $("close-settings").addEventListener("click", closeSettings);
+  $("settings-scrim").addEventListener("click", closeSettings);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("settings").hidden) { e.preventDefault(); closeSettings(); } });
+  for (const t of TABS) {
+    $(`tab-${t}`).addEventListener("click", () => selectTab(t));
+    $(`tab-${t}`).addEventListener("keydown", (e) => {
+      const i = TABS.indexOf(t);
+      if (e.key === "ArrowRight") { e.preventDefault(); selectTab(TABS[(i + 1) % TABS.length]); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); selectTab(TABS[(i + TABS.length - 1) % TABS.length]); }
+    });
+  }
+  window.addEventListener("resize", () => { if (!$("settings").hidden) fitSheet(); });
+
 
   // Tempo dial (concept B): drag up or right to speed up, 4 px per BPM.
   // The pointer sweeps 270° across 20–300 BPM. Arrow keys ±1, Page Up/Down ±5.
