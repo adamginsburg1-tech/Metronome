@@ -115,7 +115,7 @@
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, tempoChangeV: 2, sound: settings.sound, volume: settings.volume,
         accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
-        workspace: settings.workspace, routine: routineCfg, sessions, presets, presetId: settings.presetId,
+        workspace: settings.workspace, routines, routineId, routineWorking: routineCfg, sessions, presets, presetId: settings.presetId,
         gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
@@ -158,9 +158,31 @@
   };
   const answers = stored.answers || {};
 
-  // Practice ladder setup (plan §07 "First personalized practice routine").
-  const ROUTINE_DEFAULTS = { start: 130, step: 5, top: 160, play: 30, rest: 15, subdivision: 2 };
-  const routineCfg = Object.assign({}, ROUTINE_DEFAULTS, stored.routine && typeof stored.routine === "object" ? stored.routine : {});
+  // Practice routines (plan §07). Two kinds:
+  //   ladder:        start → top tempo in steps, one subdivision
+  //   subdivisions:  one tempo, a list of subdivisions in turn
+  // Each routine owns its meter, accents and gap click. `routineCfg` is the
+  // working copy of the selected routine; Save as new / Update write it back.
+  const STARTER_ROUTINES = [
+    { id: "r-pedal", name: "Double-pedal control", note: "Plan's first routine. Eighths, short rests.", kind: "ladder", start: 130, step: 5, top: 160, play: 30, rest: 15, subdivision: 2, subs: [2], meterId: "4/4", accents: null, gaps: "off" },
+    { id: "r-rudiments", name: "Rudiments with gap click", note: "Sixteenths; about a quarter of bars drop out.", kind: "ladder", start: 90, step: 10, top: 130, play: 45, rest: 15, subdivision: 4, subs: [4], meterId: "4/4", accents: null, gaps: "random25" },
+    { id: "r-mallets", name: "Four-mallet subdivisions", note: "One tempo; eighths, triplets, sixteenths, sextuplets.", kind: "subdivisions", start: 72, step: 4, top: 72, play: 40, rest: 15, subdivision: 2, subs: [2, 3, 4, 6], meterId: "4/4", accents: null, gaps: "off" },
+    { id: "r-independence", name: "Independence, quiet backbeat", note: "Click only on 2 and 4.", kind: "ladder", start: 80, step: 10, top: 110, play: 60, rest: 15, subdivision: 1, subs: [1], meterId: "4/4", accents: [0, 2, 0, 2], gaps: "off" },
+    { id: "r-excerpt", name: "Excerpt tempo ladder", note: "Work up to performance tempo: set Top to your target.", kind: "ladder", start: 96, step: 6, top: 132, play: 45, rest: 20, subdivision: 1, subs: [1], meterId: "4/4", accents: null, gaps: "off" },
+  ];
+  const ROUTINE_GAPS = [
+    { id: "off", label: "Off" }, { id: "random15", label: "Random 15%" }, { id: "random25", label: "Random 25%" },
+    { id: "random40", label: "Random 40%" }, { id: "bars31", label: "Bars 3 + 1" }, { id: "bars22", label: "Bars 2 + 2" },
+  ];
+  const routines = Array.isArray(stored.routines) ? stored.routines : STARTER_ROUTINES.map((r) => ({ ...r }));
+  if (!Array.isArray(stored.routines) && stored.routine && typeof stored.routine === "object") {
+    // Earlier versions had one ladder; keep its values in the double-pedal routine.
+    const old = stored.routine;
+    Object.assign(routines[0], Object.fromEntries(["start", "step", "top", "play", "rest", "subdivision"].filter((k) => Number.isFinite(old[k])).map((k) => [k, old[k]])));
+    routines[0].subs = [routines[0].subdivision];
+  }
+  let routineId = routines.some((r) => r.id === stored.routineId) ? stored.routineId : routines[0]?.id ?? null;
+  const routineCfg = { ...(routines.find((r) => r.id === routineId) || STARTER_ROUTINES[0]), ...(stored.routineWorking && stored.routineWorking.id === routineId ? stored.routineWorking : {}) };
   // Saved sessions live on this device only (a repository comes later, plan §08).
   const sessions = Array.isArray(stored.sessions) ? stored.sessions.slice(0, 20) : [];
 
@@ -422,8 +444,8 @@
       if (eng.ctx.state !== "running") throw new Error(`audio is ${eng.ctx.state}`);
       const practice = settings.workspace === "practice";
       if (practice && !isResume) beginRoutine();
-      const pattern = practice ? routinePattern() : currentPattern();
-      const tempo = practice ? routineTempo(rt.stages[rt.resumeStage]) : currentTempo();
+      const pattern = practice ? routinePattern(rt.stages[rt.resumeStage].sub) : currentPattern();
+      const tempo = practice ? routineTempo(rt.stages[rt.resumeStage].bpm) : currentTempo();
       const countIn = practice ? 1 : countInFor(isResume);
       if (practice) buildRoutinePlan(rt.resumeStage, eng.ctx.currentTime + START_DELAY);
       else eng.plan = T.PlaybackPlan.click({ pattern, tempo, countInBars: countIn, startTime: eng.ctx.currentTime + START_DELAY, gaps: currentGaps() });
@@ -522,7 +544,7 @@
     // Primary: Start / Stop / Resume. Secondary: Pause while running, Stop while paused.
     const primary = $("start");
     primary.dataset.running = String(running);
-    primary.textContent = running ? "Stop" : s === "paused" ? "Resume" : settings.workspace === "practice" ? "Start ladder" : "Start";
+    primary.textContent = running ? "Stop" : s === "paused" ? "Resume" : settings.workspace === "practice" ? "Start routine" : "Start";
     const locked = running || s === "paused";
     for (const id of ["ws-click", "ws-practice", "rail-click", "rail-practice"]) $(id).disabled = locked && !$(id).matches("[aria-pressed='true'], [aria-current='page']");
     const secondary = $("pause");
@@ -1402,26 +1424,49 @@
     routineCfg.top = n(Math.round(routineCfg.top), routineCfg.start, T.TEMPO_MAX, Math.max(routineCfg.start, 160));
     routineCfg.play = n(Math.round(routineCfg.play), 5, 600, 30);
     routineCfg.rest = n(Math.round(routineCfg.rest), 0, 300, 15);
-    routineCfg.subdivision = [1, 2, 3, 4].includes(routineCfg.subdivision) ? routineCfg.subdivision : 2;
+    routineCfg.subdivision = [1, 2, 3, 4, 5, 6, 7].includes(routineCfg.subdivision) ? routineCfg.subdivision : 2;
+    routineCfg.kind = routineCfg.kind === "subdivisions" ? "subdivisions" : "ladder";
+    if (!Array.isArray(routineCfg.subs) || !routineCfg.subs.length) routineCfg.subs = [routineCfg.subdivision];
+    routineCfg.subs = [...new Set(routineCfg.subs.filter((n) => n >= 1 && n <= 7))].sort((a, b) => a - b);
+    if (!METERS.some((m) => m.id === routineCfg.meterId)) routineCfg.meterId = "4/4";
+    if (!ROUTINE_GAPS.some((g) => g.id === routineCfg.gaps)) routineCfg.gaps = "off";
+  }
+  /** Stages as { bpm, sub } for the working routine. */
+  function stagesFor(cfg = routineCfg) {
+    if (cfg.kind === "subdivisions") return cfg.subs.map((sub) => ({ bpm: cfg.start, sub }));
+    return ladder(cfg.start).map((bpm) => ({ bpm, sub: cfg.subdivision }));
+  }
+  const stageLabel = (st) => `${fmtBpm(st.bpm)} BPM${routineCfg.kind === "subdivisions" || st.sub > 1 ? ` ÷${st.sub}` : ""}`;
+  function routineMeter() {
+    const d = METERS.find((m) => m.id === routineCfg.meterId) || METERS[0];
+    return T.makeMeter(d.num, d.den, d.grouping);
+  }
+  function routineGaps() {
+    const g = routineCfg.gaps;
+    if (g === "bars31") return { mode: "cycle", play: 3, mute: 1 };
+    if (g === "bars22") return { mode: "cycle", play: 2, mute: 2 };
+    if (typeof g === "string" && g.startsWith("random")) return { mode: "random", percent: Number(g.slice(6)), seed: settings.gapSeed };
+    return { mode: "off" };
   }
   function ladder(from) {
     const out = [];
     for (let t = from; t <= routineCfg.top + 1e-9 && out.length < 60; t += routineCfg.step) out.push(t);
     return out.length ? out : [from];
   }
-  function routinePattern() {
-    const meter = currentMeter();
-    return T.makePattern({ meter, subdivision: routineCfg.subdivision, accents: currentAccents(meter) });
+  function routinePattern(sub = routineCfg.subdivision) {
+    const meter = routineMeter();
+    const accents = Array.isArray(routineCfg.accents) && routineCfg.accents.length === meter.num ? routineCfg.accents : T.defaultAccents(meter);
+    return T.makePattern({ meter, subdivision: sub, accents });
   }
-  const routineTempo = (bpm) => T.makeTempo(bpm, currentMeter().defaultBeatUnit);
+  const routineTempo = (bpm) => T.makeTempo(bpm, routineMeter().defaultBeatUnit);
   function stageBars(seconds, tempo, pattern) {
     const barSec = tempo.secondsPerWhole * pattern.meter.num / pattern.meter.den;
     return { bars: Math.max(1, Math.round(seconds / barSec)), barSec };
   }
   function segmentsForStage(stages, i, withRest) {
-    const pattern = routinePattern();
+    const pattern = routinePattern(stages[i].sub);
     const meter = pattern.meter;
-    const tempo = routineTempo(stages[i]);
+    const tempo = routineTempo(stages[i].bpm);
     const countIn = T.makePattern({ meter, subdivision: 1, accents: pattern.accents.map((l) => (l === T.LEVEL.muted ? T.LEVEL.normal : l)) });
     const items = [];
     if (withRest) {
@@ -1442,22 +1487,22 @@
   function buildRoutinePlan(from, startTime) {
     const items = segmentsForStage(rt.stages, from, false);
     for (let i = from + 1; i < rt.stages.length; i++) items.push(...segmentsForStage(rt.stages, i, true));
-    eng.plan = new T.PlaybackPlan(items.map((x) => x.seg), startTime, { gaps: currentGaps() });
+    eng.plan = new T.PlaybackPlan(items.map((x) => x.seg), startTime, { gaps: routineGaps() });
     rt.meta = items.map((x) => x.meta);
     rt.current = null;
     indexPlays();
   }
   function beginRoutine() {
     clampCfg();
-    rt.stages = ladder(routineCfg.start);
-    rt.log = rt.stages.map((tempo) => ({ tempo, started: false, completed: false, effort: null, clean: false }));
+    rt.stages = stagesFor();
+    rt.log = rt.stages.map((st) => ({ tempo: st.bpm, sub: st.sub, label: stageLabel(st), started: false, completed: false, effort: null, clean: false }));
     rt.resumeStage = 0;
     rt.active = true;
     rt.summaryOpen = false;
     rt.rateStage = null;
     rt.finished = false;
     rt.startedAt = new Date().toISOString();
-    log(`Ladder: ${rt.stages.join(" → ")} BPM, ${routineCfg.play} s play, ${routineCfg.rest} s rest`);
+    log(`Routine "${routineCfg.name}": ${rt.stages.map(stageLabel).join(" → ")}, ${routineCfg.play} s play, ${routineCfg.rest} s rest`);
     renderPractice();
   }
 
@@ -1472,7 +1517,7 @@
     if (end !== null && t >= end) {
       if (rt.current && rt.current.phase === "play") rt.log[rt.current.stage].completed = true;
       rt.finished = true;
-      log("Ladder complete", "info");
+      log("Routine complete", "info");
       stop();
       return;
     }
@@ -1500,9 +1545,11 @@
     const stage = cur.stage;
     $("rt-phase").dataset.phase = cur.phase;
     $("rt-phase").textContent = { play: "Play", rest: "Rest", countIn: "Count-in" }[cur.phase];
-    $("rt-tempo").textContent = fmtBpm(rt.stages[stage]);
+    const st = rt.stages[stage];
+    $("rt-tempo").textContent = fmtBpm(st.bpm);
+    $("rt-sub").textContent = routineCfg.kind === "subdivisions" || st.sub > 1 ? `÷${st.sub} · ${subdivisionName(routinePattern(st.sub))}` : "";
     const next = rt.stages[stage + 1];
-    $("rt-stage").textContent = `Stage ${stage + 1} of ${rt.stages.length}${cur.phase === "play" ? (next !== undefined ? ` · Next: ${fmtBpm(next)} BPM` : " · Last stage") : ` · Coming up: ${fmtBpm(rt.stages[stage])} BPM`}`;
+    $("rt-stage").textContent = `${routineCfg.name} · Stage ${stage + 1} of ${rt.stages.length}${cur.phase === "play" ? (next !== undefined ? ` · Next: ${stageLabel(next)}` : " · Last stage") : ` · Coming up: ${stageLabel(st)}`}`;
     const canChange = cur.phase === "play";
     $("rt-repeat").disabled = !canChange;
     $("rt-down").disabled = !canChange;
@@ -1513,15 +1560,30 @@
     $("rt-rate").hidden = !show;
     if (!show) return;
     const entry = rt.log[rt.rateStage];
-    $("rt-rate-q").textContent = `How did ${fmtBpm(entry.tempo)} feel?`;
+    $("rt-rate-q").textContent = `How did ${entry.label} feel?`;
     $("rt-clean").checked = entry.clean;
     renderPracticeChips();
   }
   function renderPracticeChips() {
-    chip("rt-sub-chips", [1, 2, 3, 4].map((n) => ({ id: n, label: n === 1 ? "Off" : `÷${n}` })), (x) => x.id === routineCfg.subdivision, (x) => { routineCfg.subdivision = x.id; renderPreview(); });
+    const changed = () => { clampCfg(); renderPreview(); renderRoutines(); };
+    chip("rt-sub-chips", [1, 2, 3, 4, 5, 6, 7].map((n) => ({ id: n, label: n === 1 ? "Off" : `÷${n}` })), (x) => x.id === routineCfg.subdivision, (x) => { routineCfg.subdivision = x.id; routineCfg.subs = [x.id]; changed(); });
+    // Subdivision routines: tap to add or remove; played in order from slow to fast.
+    chip("rt-subs-chips", [1, 2, 3, 4, 5, 6, 7].map((n) => ({ id: n, label: `÷${n}` })), (x) => routineCfg.subs.includes(x.id), (x) => {
+      const has = routineCfg.subs.includes(x.id);
+      if (has && routineCfg.subs.length === 1) return;
+      routineCfg.subs = has ? routineCfg.subs.filter((n) => n !== x.id) : routineCfg.subs.concat([x.id]);
+      changed();
+    });
+    chip("rt-meter-chips", METERS.map((m) => ({ ...m, label: m.label || m.id })), (m) => m.id === routineCfg.meterId, (m) => {
+      if (m.id === routineCfg.meterId) return;
+      routineCfg.meterId = m.id;
+      routineCfg.accents = null; // a different meter starts from its default accents
+      changed();
+    });
+    chip("rt-gap-chips", ROUTINE_GAPS, (g) => g.id === routineCfg.gaps, (g) => { routineCfg.gaps = g.id; changed(); });
     if (rt.rateStage !== null && rt.log[rt.rateStage]) {
       const entry = rt.log[rt.rateStage];
-      chip("rt-effort", [1, 2, 3, 4, 5].map((n) => ({ id: n, label: String(n), note: n === 1 ? "easy" : n === 5 ? "hard" : "" })), (x) => x.id === entry.effort, (x) => { entry.effort = x.id; log(`Effort ${x.id} for ${fmtBpm(entry.tempo)} BPM`); });
+      chip("rt-effort", [1, 2, 3, 4, 5].map((n) => ({ id: n, label: String(n), note: n === 1 ? "easy" : n === 5 ? "hard" : "" })), (x) => x.id === entry.effort, (x) => { entry.effort = x.id; log(`Effort ${x.id} for ${entry.label}`); });
     }
   }
 
@@ -1534,20 +1596,25 @@
     const boundary = nextIdx >= 0 ? plan.segmentSpan(nextIdx).start : plan.endTime;
     if (boundary <= eng.scheduledUntil + 0.01) { $("rt-note").textContent = "Too late for this stage. Try again during the next one."; return; }
     const keep = rt.stages.slice(0, cur.stage + 1);
-    const stages = kind === "repeat"
-      ? keep.concat([rt.stages[cur.stage]], rt.stages.slice(cur.stage + 1))
-      : keep.concat(ladder(Math.max(T.TEMPO_MIN, rt.stages[cur.stage] - routineCfg.step)));
+    const here = rt.stages[cur.stage];
+    const lower = Math.max(T.TEMPO_MIN, here.bpm - routineCfg.step);
+    let stages;
+    if (kind === "repeat") stages = keep.concat([{ ...here }], rt.stages.slice(cur.stage + 1));
+    else if (routineCfg.kind === "subdivisions") {
+      // One step slower, then the remaining subdivisions at that tempo.
+      stages = keep.concat([{ bpm: lower, sub: here.sub }], rt.stages.slice(cur.stage + 1).map((st) => ({ bpm: lower, sub: st.sub })));
+    } else stages = keep.concat(ladder(lower).map((bpm) => ({ bpm, sub: here.sub })));
     const cut = nextIdx >= 0 ? nextIdx : plan.segmentCount;
     const tail = [];
     for (let i = cur.stage + 1; i < stages.length; i++) tail.push(...segmentsForStage(stages, i, true));
     eng.plan = new T.PlaybackPlan(plan.segments.slice(0, cut).concat(tail.map((x) => x.seg)), plan.startTime, { gaps: plan.gaps });
     rt.meta = rt.meta.slice(0, cut).concat(tail.map((x) => x.meta));
     rt.stages = stages;
-    rt.log = rt.log.slice(0, cur.stage + 1).concat(stages.slice(cur.stage + 1).map((tempo) => ({ tempo, started: false, completed: false, effort: null, clean: false })));
+    rt.log = rt.log.slice(0, cur.stage + 1).concat(stages.slice(cur.stage + 1).map((st) => ({ tempo: st.bpm, sub: st.sub, label: stageLabel(st), started: false, completed: false, effort: null, clean: false })));
     indexPlays();
-    const msg = kind === "repeat" ? `Repeating ${fmtBpm(rt.stages[cur.stage])} BPM next` : `Next stage: ${fmtBpm(stages[cur.stage + 1])} BPM, then up again`;
+    const msg = kind === "repeat" ? `Repeating ${stageLabel(here)} next` : routineCfg.kind === "subdivisions" ? `Next: ${stageLabel(stages[cur.stage + 1])}, the rest at that tempo` : `Next stage: ${stageLabel(stages[cur.stage + 1])}, then up again`;
     $("rt-note").textContent = msg;
-    log(`Ladder changed (${kind === "repeat" ? "repeat" : "step down"}): ${stages.slice(cur.stage + 1).join(" → ")} BPM`);
+    log(`Routine changed (${kind === "repeat" ? "repeat" : "step down"}): ${stages.slice(cur.stage + 1).map(stageLabel).join(" → ")}`);
     renderPracticeLive();
   }
 
@@ -1568,7 +1635,7 @@
       const tr = document.createElement("tr");
       const td = (content) => { const c = document.createElement("td"); if (content instanceof Node) c.append(content); else c.textContent = content; tr.append(c); };
       td(String(i + 1));
-      td(`${fmtBpm(entry.tempo)}`);
+      td(entry.label || `${fmtBpm(entry.tempo)} BPM`);
       td(entry.completed ? "Yes" : "Stopped");
       const sel = document.createElement("select");
       sel.setAttribute("aria-label", `Effort for stage ${i + 1}`);
@@ -1585,7 +1652,7 @@
       rows.append(tr);
     });
     const done = rt.log.filter((x) => x.completed).length;
-    $("rt-sum-title").textContent = rt.finished ? `Ladder complete · ${done} stages` : `Stopped · ${done} stage${done === 1 ? "" : "s"} completed`;
+    $("rt-sum-title").textContent = `${routineCfg.name}: ${rt.finished ? `complete · ${done} stages` : `stopped · ${done} stage${done === 1 ? "" : "s"} completed`}`;
     $("rt-notes").value = "";
     fillCleanTempo();
   }
@@ -1604,25 +1671,28 @@
     $("practice-live").hidden = !rt.active;
     $("practice-summary").hidden = !rt.summaryOpen;
     if (!rt.active && !rt.summaryOpen) {
+      renderRoutines();
       renderRtFields();
+      renderPracticeChips();
       renderPreview();
     }
     renderHistory();
   }
   function renderPreview() {
     clampCfg();
-    const stages = ladder(routineCfg.start);
-    const pattern = routinePattern();
+    const stages = stagesFor();
     let total = 0;
-    stages.forEach((bpm, i) => {
-      const tempo = routineTempo(bpm);
+    stages.forEach((st, i) => {
+      const pattern = routinePattern(st.sub);
+      const tempo = routineTempo(st.bpm);
       const play = stageBars(routineCfg.play, tempo, pattern);
       total += play.bars * play.barSec;
       const rest = stageBars(routineCfg.rest, tempo, pattern);
       total += i === 0 ? play.barSec : rest.bars * rest.barSec;
     });
     const m = Math.floor(total / 60), sec = Math.round(total % 60);
-    $("rt-preview").textContent = `${stages.length} stage${stages.length === 1 ? "" : "s"}: ${stages.join(" → ")} BPM · about ${m} min ${String(sec).padStart(2, "0")} s`;
+    const gap = ROUTINE_GAPS.find((g) => g.id === routineCfg.gaps);
+    $("rt-preview").textContent = `${stages.length} stage${stages.length === 1 ? "" : "s"}: ${stages.map(stageLabel).join(" → ")} · about ${m} min ${String(sec).padStart(2, "0")} s${routineCfg.gaps !== "off" ? ` · gap click ${gap.label.toLowerCase()}` : ""}`;
   }
   function renderHistory() {
     const list = $("rt-history");
@@ -1643,7 +1713,8 @@
       meta.className = "meta";
       const efforts = x.stages.map((r) => r.effort).filter(Boolean);
       const avg = efforts.length ? (efforts.reduce((a, b) => a + b, 0) / efforts.length).toFixed(1) : null;
-      meta.textContent = `${x.start}→${x.top} by ${x.step} · ${x.stages.filter((r) => r.completed).length}/${x.stages.length} stages${avg ? ` · effort ${avg}` : ""}${x.notes ? ` · ${x.notes}` : ""}`;
+      const range = x.kind === "subdivisions" ? `${x.start} BPM ÷${(x.subs || []).join(" ÷")}` : `${x.start}→${x.top} by ${x.step}`;
+      meta.textContent = `${x.routine ? `${x.routine} · ` : ""}${range} · ${x.stages.filter((r) => r.completed).length}/${x.stages.length} stages${avg ? ` · effort ${avg}` : ""}${x.notes ? ` · ${x.notes}` : ""}`;
       li.append(head, meta);
       list.append(li);
     }
@@ -1657,17 +1728,21 @@
     rest: { title: "Rest", min: 0, max: 300, unit: "seconds" },
   };
   function renderRtFields() {
+    const subsKind = routineCfg.kind === "subdivisions";
+    $("practice-setup").dataset.kind = routineCfg.kind;
+    $("rt-start-label").textContent = subsKind ? "Tempo" : "Start tempo";
+    $("rt-step-label").textContent = subsKind ? "Step down by" : "Step up by";
     for (const [k, f] of Object.entries(RT_FIELDS)) {
       const b = $(`rt-${k}`);
       b.textContent = String(routineCfg[k]);
-      b.setAttribute("aria-label", `${f.title}: ${routineCfg[k]} ${f.unit}. Tap to change.`);
+      b.setAttribute("aria-label", `${k === "start" && subsKind ? "Tempo" : f.title}: ${routineCfg[k]} ${f.unit}. Tap to change.`);
     }
   }
   for (const [k, f] of Object.entries(RT_FIELDS)) {
     $(`rt-${k}`).addEventListener("click", (e) => {
       openKeypad({
         ...f, value: routineCfg[k], decimals: 0, anchor: e.currentTarget,
-        onSet: (v) => { routineCfg[k] = v; clampCfg(); renderRtFields(); renderPreview(); saveStore(); },
+        onSet: (v) => { routineCfg[k] = v; clampCfg(); renderRtFields(); renderPreview(); renderRoutines(); saveStore(); },
       });
     });
   }
@@ -1677,9 +1752,10 @@
   $("rt-save").addEventListener("click", () => {
     const session = {
       date: rt.startedAt || new Date().toISOString(),
+      routine: routineCfg.name, kind: routineCfg.kind,
       start: routineCfg.start, step: routineCfg.step, top: routineCfg.top, play: routineCfg.play, rest: routineCfg.rest,
-      meter: currentMeter().label, subdivision: routineCfg.subdivision,
-      stages: rt.log.filter((x) => x.started).map(({ tempo, completed, effort, clean }) => ({ tempo, completed, effort, clean })),
+      meter: routineMeter().label, subdivision: routineCfg.subdivision, subs: routineCfg.subs.slice(), gaps: routineCfg.gaps,
+      stages: rt.log.filter((x) => x.started).map(({ tempo, sub, completed, effort, clean }) => ({ tempo, sub, completed, effort, clean })),
       cleanTempo: Number($("rt-clean-tempo").value) || null,
       notes: $("rt-notes").value.trim(),
     };
@@ -1700,6 +1776,109 @@
     rt.finished = false;
     log("Session discarded");
     renderPractice();
+  });
+
+  // ---------- routine library ----------
+  const ROUTINE_KEYS = ["kind", "start", "step", "top", "play", "rest", "subdivision", "subs", "meterId", "accents", "gaps"];
+  const routineUI = { armedDelete: false, naming: null };
+  const savedRoutine = () => routines.find((r) => r.id === routineId) || null;
+  const routineEdited = () => { const r = savedRoutine(); return !r || ROUTINE_KEYS.some((k) => JSON.stringify(r[k] ?? null) !== JSON.stringify(routineCfg[k] ?? null)); };
+  function routineSummary(r) {
+    const gap = ROUTINE_GAPS.find((g) => g.id === r.gaps);
+    const what = r.kind === "subdivisions" ? `${r.start} BPM · ${r.subs.map((n) => `÷${n}`).join(" ")}` : `${r.start}→${r.top} by ${r.step}${r.subdivision > 1 ? ` · ÷${r.subdivision}` : ""}`;
+    return `${what} · ${r.play} s / ${r.rest} s${r.meterId !== "4/4" ? ` · ${r.meterId}` : ""}${r.gaps && r.gaps !== "off" ? ` · gaps ${gap ? gap.label.toLowerCase() : ""}` : ""}`;
+  }
+  function selectRoutine(r) {
+    routineId = r.id;
+    for (const k of Object.keys(routineCfg)) delete routineCfg[k];
+    Object.assign(routineCfg, JSON.parse(JSON.stringify(r)));
+    clampCfg();
+    routineUI.armedDelete = false;
+    log(`Routine selected: ${r.name}`);
+    saveStore();
+    renderPractice();
+  }
+  function renderRoutines() {
+    const list = $("rt-routines");
+    list.textContent = "";
+    for (const r of routines) {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "preset-load";
+      b.setAttribute("aria-current", String(r.id === routineId));
+      const name = document.createElement("span"); name.className = "name"; name.textContent = r.name;
+      const sum = document.createElement("span"); sum.className = "sum"; sum.textContent = routineSummary(r.id === routineId ? routineCfg : r);
+      b.append(name, sum);
+      if (r.note) { const n = document.createElement("span"); n.className = "sum"; n.textContent = r.note; b.append(n); }
+      b.addEventListener("click", () => { if (r.id !== routineId) selectRoutine(r); });
+      li.append(b);
+      list.append(li);
+    }
+    const edited = routineEdited();
+    const cur = savedRoutine();
+    $("rt-edited").hidden = !edited || !cur;
+    $("rt-update").disabled = !cur || !edited;
+    $("rt-update").textContent = "Update";
+    $("rt-update").setAttribute("aria-label", cur ? `Update “${cur.name}” with these settings` : "Update routine");
+    $("rt-delete").disabled = !cur;
+    $("rt-delete").textContent = routineUI.armedDelete ? "Tap again to delete" : "Delete";
+    $("rt-rename").disabled = !cur;
+  }
+  function openRoutineName(mode) {
+    routineUI.naming = mode;
+    $("rt-name-form").hidden = false;
+    $("rt-library-actions").hidden = true;
+    $("rt-name-input").value = mode === "rename" ? routineCfg.name : `${routineCfg.name} (mine)`;
+    $("rt-name-confirm").textContent = mode === "rename" ? "Rename" : "Save";
+    $("rt-name-input").focus();
+    $("rt-name-input").select();
+  }
+  function closeRoutineName() {
+    $("rt-name-form").hidden = true;
+    $("rt-library-actions").hidden = false;
+    routineUI.naming = null;
+  }
+  $("rt-name-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("rt-name-input").value.trim();
+    if (!name) { $("rt-name-input").focus(); return; }
+    if (routineUI.naming === "rename") {
+      const r = savedRoutine();
+      if (r) { r.name = name; routineCfg.name = name; log(`Routine renamed: ${name}`); }
+    } else {
+      const r = { ...JSON.parse(JSON.stringify(routineCfg)), id: `r-${Date.now().toString(36)}`, name, note: "" };
+      routines.push(r);
+      routineId = r.id;
+      Object.assign(routineCfg, { id: r.id, name, note: "" });
+      log(`Routine saved: ${name}`, "info");
+      showToast(`Saved “${name}”`);
+    }
+    closeRoutineName();
+    saveStore();
+    renderPractice();
+  });
+  $("rt-name-cancel").addEventListener("click", closeRoutineName);
+  $("rt-save-new").addEventListener("click", () => openRoutineName("new"));
+  $("rt-rename").addEventListener("click", () => openRoutineName("rename"));
+  $("rt-update").addEventListener("click", () => {
+    const r = savedRoutine();
+    if (!r) return;
+    for (const k of ROUTINE_KEYS) r[k] = JSON.parse(JSON.stringify(routineCfg[k] ?? null));
+    log(`Routine updated: ${r.name}`, "info");
+    showToast(`Updated “${r.name}”`);
+    saveStore();
+    renderRoutines();
+  });
+  $("rt-delete").addEventListener("click", () => {
+    const r = savedRoutine();
+    if (!r) return;
+    if (!routineUI.armedDelete) { routineUI.armedDelete = true; renderRoutines(); return; }
+    routines.splice(routines.indexOf(r), 1);
+    log(`Routine deleted: ${r.name}`);
+    routineUI.armedDelete = false;
+    if (routines.length) selectRoutine(routines[0]);
+    else { routineId = null; saveStore(); renderPractice(); }
   });
 
   function setWorkspace(name) {

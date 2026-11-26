@@ -258,3 +258,29 @@ Allow repeating or stepping down. Log clean working tempo, perceived effort
 - Changing gap settings while playing applies immediately without moving any click.
 - Presets remember gap settings; presets saved earlier load with gaps off.
 - Applies in Practice too (silent bars inside a ladder's play stages).
+
+## Practice · routine library (2026-11-26)
+
+The interval ladder became one of several **routines**. Each routine has a kind,
+its own meter, accents, subdivision and gap click, and play/rest times.
+
+| Starter routine (plan §07) | Kind | Settings |
+|---|---|---|
+| Double-pedal control | Tempo ladder | 130→160 by 5, ÷2, 30 s / 15 s |
+| Rudiments with gap click | Tempo ladder | 90→130 by 10, ÷4, 45 s / 15 s, random gaps 25% |
+| Four-mallet subdivisions | Subdivisions | 72 BPM; ÷2, ÷3, ÷4, ÷6 in turn; 40 s / 15 s |
+| Independence, quiet backbeat | Tempo ladder | 80→110 by 10, click only on 2 and 4, 60 s / 15 s |
+| Excerpt tempo ladder | Tempo ladder | 96→132 by 6, 45 s / 20 s; set Top to the target tempo |
+
+- **Setup:** pick a routine (cards show a summary and a note); adjust its values
+  (number pad), subdivision (ladder) or the subdivisions to cycle (tap to add or
+  remove), meter, and gap click (Off, Random 15/25/40%, Bars 3+1, Bars 2+2). The
+  preview lists every stage and the total time. "· edited" shows unsaved changes.
+- **Library actions:** Update, Save as new, Rename, Delete (two taps). Earlier
+  single-ladder settings carry over into Double-pedal control.
+- **While playing:** the stage shows tempo and subdivision ("120 ÷3 · Quarter +
+  Triplet"). **Step down** on a tempo ladder drops one step and climbs again; on a
+  subdivision routine it plays the remaining subdivisions one step slower.
+- **Summary and history** name the routine and show each stage's tempo and
+  subdivision.
+- The main button reads **Start routine** in Practice.

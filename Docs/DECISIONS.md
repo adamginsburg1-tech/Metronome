@@ -233,3 +233,11 @@ them mid-run. The random function is a 32-bit hash implemented identically in
 JS and Swift; both test suites check the same 64-bar sequence for seed 12345 at 30%.
 Gap clicks are still returned (flagged) for the beat lights when asked, so the
 lights can stay on or go dark.
+
+## D-028 · Practice routine library (2026-11-26)
+Routines replace the single ladder: kinds `ladder` and `subdivisions`, each with
+its own meter, accents, subdivision(s), gap click and timings; stages are
+`{bpm, sub}`. Five starter routines from plan §07 (the drum-set independence one
+uses a click on 2 and 4 until grooves exist). Routine gap click is a small set of
+choices rather than the full Click gap controls, to keep setup short. Library is
+stored on the device like presets.

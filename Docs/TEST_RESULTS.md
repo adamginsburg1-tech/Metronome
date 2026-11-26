@@ -272,3 +272,19 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   to Random, 50% and a new pattern while playing applied at once; a preset saved
   with gaps shows "· gaps 50%"; loading an older preset turned gaps off;
   regression checks (presets, practice, immediate changes) pass; no errors.
+
+## 2026-11-26 · Practice routine library (headless Chromium, iPad Pro 11 emulation)
+
+- Five starter routines listed with summaries; an old single-ladder setting
+  (start 140) carried into Double-pedal control.
+- Four-mallet subdivisions: kind "subdivisions", Top hidden, preview "72 BPM ÷2 →
+  ÷3 → ÷4 → ÷6 · about 3 min 33 s"; adding ÷5 marked it edited; saved as a new
+  routine; live stage showed "120 ÷2 · Quarter + Eighth" and "Next: 120 BPM ÷3";
+  Step down → "Next: 116 BPM ÷2, the rest at that tempo"; the rest asked "How did
+  120 BPM ÷2 feel?"; the summary and history named the routine and stages.
+- Rudiments routine shows Random 25% gaps in its preview; Independence routine
+  shows plain tempos (click on 2 and 4); Delete needed two taps.
+- Regression: practice ladder, gaps, presets, immediate changes, settings sheet,
+  34 Node tests; no console errors; no overflow at 390 px.
+- **Found and fixed during testing:** Start passed a stage object instead of its
+  tempo (routine didn't start); routine cards had uneven widths.

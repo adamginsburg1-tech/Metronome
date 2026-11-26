@@ -79,23 +79,44 @@
     </section>
 
     <section class="panel practice" id="practice-view" aria-label="Practice">
-      <div class="practice-setup" id="practice-setup">
-        <h2>Interval ladder</h2>
-        <p class="hint">Play, rest, step up, until your top tempo. One bar of count-in before the first stage and at the end of every rest. Uses the meter and sound from Click.</p>
+      <div class="practice-setup" id="practice-setup" data-kind="ladder">
+        <div class="rt-library-head"><h2>Routines</h2><span class="preset-edited" id="rt-edited" hidden>· edited</span></div>
+        <ol class="preset-list rt-routines" id="rt-routines"></ol>
+        <div class="rt-library-actions" id="rt-library-actions">
+          <button type="button" class="btn" id="rt-update">Update routine</button>
+          <button type="button" class="btn primary" id="rt-save-new">Save as new</button>
+          <button type="button" class="btn" id="rt-rename">Rename</button>
+          <button type="button" class="btn danger" id="rt-delete">Delete</button>
+        </div>
+        <form class="preset-save" id="rt-name-form" hidden>
+          <label class="num-field" for="rt-name-input">Routine name</label>
+          <input id="rt-name-input" type="text" maxlength="40" autocomplete="off" enterkeyhint="done">
+          <div class="actions">
+            <button type="button" class="btn" id="rt-name-cancel">Cancel</button>
+            <button type="submit" class="btn primary" id="rt-name-confirm">Save</button>
+          </div>
+        </form>
+
+        <h3 class="subhead">This routine</h3>
         <div class="form-grid">
-          <div class="num-field"><span>Start tempo</span><button type="button" class="num-button" id="rt-start">130</button></div>
-          <div class="num-field"><span>Step up by</span><button type="button" class="num-button" id="rt-step">5</button></div>
-          <div class="num-field"><span>Top tempo</span><button type="button" class="num-button" id="rt-top">160</button></div>
+          <div class="num-field"><span id="rt-start-label">Start tempo</span><button type="button" class="num-button" id="rt-start">130</button></div>
+          <div class="num-field"><span id="rt-step-label">Step up by</span><button type="button" class="num-button" id="rt-step">5</button></div>
+          <div class="num-field rt-ladder-only"><span>Top tempo</span><button type="button" class="num-button" id="rt-top">160</button></div>
           <div class="num-field"><span>Play (seconds)</span><button type="button" class="num-button" id="rt-play">30</button></div>
           <div class="num-field"><span>Rest (seconds)</span><button type="button" class="num-button" id="rt-rest">15</button></div>
         </div>
-        <fieldset class="field"><legend>Subdivision</legend><div class="chips" id="rt-sub-chips"></div></fieldset>
+        <fieldset class="field rt-ladder-only"><legend>Subdivision</legend><div class="chips" id="rt-sub-chips"></div></fieldset>
+        <fieldset class="field rt-subs-only"><legend>Subdivisions, in turn</legend><div class="chips" id="rt-subs-chips"></div><p class="hint">Tap to add or remove. Played from slowest to fastest.</p></fieldset>
+        <fieldset class="field"><legend>Meter</legend><div class="chips" id="rt-meter-chips"></div></fieldset>
+        <fieldset class="field"><legend>Gap click</legend><div class="chips" id="rt-gap-chips"></div></fieldset>
+        <p class="hint">One bar of count-in before the first stage and at the end of every rest. Uses the sound from Settings.</p>
         <p class="rt-preview" id="rt-preview"></p>
       </div>
 
       <div class="practice-live" id="practice-live" hidden>
         <div class="rt-phase" id="rt-phase" data-phase="countIn">Count-in</div>
         <div class="rt-big"><span class="rt-tempo" id="rt-tempo">130</span><span class="bpm-unit">BPM</span></div>
+        <p class="rt-sub" id="rt-sub"></p>
         <div class="rt-time" id="rt-time" aria-live="off">0:30</div>
         <p class="rt-stage" id="rt-stage"></p>
         <div class="rt-actions">

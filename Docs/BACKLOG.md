@@ -66,7 +66,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
   rating, summary, saved sessions on device
 - ☐ **Owner:** run a real double-pedal session; check stage changes (exit gate)
 - ☑ Gap click: bars cycle or seeded random, lights option, presets, both cores (D-027)
-- ☐ Saved routines (more than one ladder; the other starter routines in plan §07)
+- ☑ Routine library: 5 starter routines, ladder and subdivision kinds, per-routine meter/accents/gaps, save/update/rename/delete (D-028)
 - ☐ Port `segmentSpan` to the Swift core
 
 ## M1 — Quick Click (1–2 weeks)
