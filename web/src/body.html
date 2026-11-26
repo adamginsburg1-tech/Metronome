@@ -32,7 +32,6 @@
         <div class="lcd-head" aria-hidden="true"><span id="lcd-title">Quick Click</span><span id="lcd-meter">4/4</span></div>
         <span class="beat-glyph" id="beat-glyph" aria-hidden="true">♩</span>
         <button type="button" class="bpm" id="bpm-display" aria-label="Tempo 120 BPM. Tap to type a tempo.">120</button>
-        <input class="bpm-input" id="bpm-input" type="text" inputmode="decimal" autocomplete="off" aria-label="Tempo in BPM, 20 to 300" hidden>
         <span class="bpm-unit">BPM</span>
         <p class="tempo-note" id="tempo-note" aria-live="polite"></p>
         <div class="lcd-lines" aria-hidden="true"><span id="lcd-pattern"></span><span id="lcd-state"></span></div>
@@ -125,6 +124,26 @@
   </main>
 
   <div class="hiccup" id="hiccup" role="status" hidden></div>
+
+  <!-- Tempo keypad: iPadOS has no number-only keyboard for web pages, so POCKET draws its own. -->
+  <section class="keypad" id="keypad" role="dialog" aria-modal="false" aria-labelledby="keypad-title" hidden>
+    <div class="keypad-head">
+      <span id="keypad-title">Set tempo</span>
+      <output class="keypad-value" id="keypad-value" aria-live="polite">120</output>
+    </div>
+    <p class="keypad-note" id="keypad-note">20 to 300 BPM</p>
+    <div class="keypad-keys">
+      <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button>
+      <button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button>
+      <button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button>
+      <button type="button" data-key="." aria-label="Decimal point">.</button><button type="button" data-key="0">0</button>
+      <button type="button" data-key="back" aria-label="Delete">⌫</button>
+    </div>
+    <div class="keypad-actions">
+      <button type="button" class="btn" id="keypad-cancel">Cancel</button>
+      <button type="button" class="btn primary" id="keypad-set">Set</button>
+    </div>
+  </section>
 
   <div class="scrim" id="settings-scrim" hidden></div>
   <section class="sheet" id="settings" role="dialog" aria-modal="false" aria-labelledby="settings-title" hidden>

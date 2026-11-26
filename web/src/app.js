@@ -1161,35 +1161,86 @@
     }
   });
 
-  const bpmDisplay = $("bpm-display");
-  const bpmInput = $("bpm-input");
-  bpmDisplay.addEventListener("click", () => {
-    bpmInput.value = fmtBpm(settings.bpm);
-    bpmDisplay.hidden = true;
-    bpmInput.hidden = false;
-    bpmInput.focus();
-    bpmInput.select();
-  });
-  function closeBpmEdit(commit) {
-    if (bpmInput.hidden) return;
-    if (commit) {
-      const v = Number(bpmInput.value.replace(",", "."));
-      if (!Number.isFinite(v) || v < T.TEMPO_MIN || v > T.TEMPO_MAX) {
-        renderTempoNote(`Enter a tempo from ${T.TEMPO_MIN} to ${T.TEMPO_MAX}.`);
-        bpmInput.focus();
-        return;
-      }
-      setBpm(v);
-    }
-    bpmInput.hidden = true;
-    bpmDisplay.hidden = false;
-    renderTempoNote();
+  // ---------- tempo keypad ----------
+  // iPadOS shows its full keyboard even for number fields, so tapping the tempo
+  // opens POCKET's own pad. The first key replaces the shown value. Hardware
+  // keys work too (digits, ".", Backspace, Enter, Escape).
+  const keypad = { open: false, text: "", fresh: true, lastFocus: null };
+  function placeKeypad() {
+    const el = $("keypad");
+    const anchor = $("bpm-display").getBoundingClientRect();
+    const transportTop = document.querySelector(".transport").getBoundingClientRect().top;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    let left = Math.min(Math.max(16, anchor.left), window.innerWidth - w - 16);
+    let top = anchor.bottom + 8;
+    if (top + h > transportTop - 8) top = Math.max(16, transportTop - 8 - h);
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
   }
-  bpmInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); closeBpmEdit(true); }
-    if (e.key === "Escape") { e.preventDefault(); closeBpmEdit(false); }
+  function renderKeypad(error) {
+    const v = $("keypad-value");
+    v.textContent = keypad.fresh ? fmtBpm(settings.bpm) : (keypad.text || "–");
+    v.classList.toggle("fresh", keypad.fresh);
+    const note = $("keypad-note");
+    note.textContent = error || "20 to 300 BPM";
+    note.classList.toggle("error", !!error);
+  }
+  function openKeypad() {
+    if (keypad.open) return;
+    keypad.open = true;
+    keypad.text = "";
+    keypad.fresh = true;
+    keypad.lastFocus = document.activeElement;
+    $("keypad").hidden = false;
+    renderKeypad();
+    placeKeypad();
+    $("keypad").querySelector('[data-key="1"]').focus({ preventScroll: true });
+  }
+  function closeKeypad() {
+    if (!keypad.open) return;
+    keypad.open = false;
+    $("keypad").hidden = true;
+    if (keypad.lastFocus && document.contains(keypad.lastFocus)) keypad.lastFocus.focus({ preventScroll: true });
+  }
+  function pressKey(k) {
+    let t = keypad.fresh ? "" : keypad.text;
+    if (k === "back") t = t.slice(0, -1);
+    else if (k === ".") { if (!t.includes(".")) t = (t || "0") + "."; }
+    else {
+      const decimals = t.includes(".") ? t.split(".")[1].length : 0;
+      const digits = t.replace(".", "").length;
+      if (decimals < 2 && digits < 5) t += k;
+    }
+    keypad.text = t;
+    keypad.fresh = false;
+    renderKeypad();
+  }
+  function commitKeypad() {
+    if (keypad.fresh) { closeKeypad(); return; }
+    const v = Number(keypad.text);
+    if (!keypad.text || !Number.isFinite(v) || v < T.TEMPO_MIN || v > T.TEMPO_MAX) {
+      renderKeypad(`Enter a tempo from ${T.TEMPO_MIN} to ${T.TEMPO_MAX}.`);
+      return;
+    }
+    setBpm(v);
+    closeKeypad();
+  }
+  $("bpm-display").addEventListener("click", () => (keypad.open ? closeKeypad() : openKeypad()));
+  $("keypad").addEventListener("click", (e) => { const b = e.target.closest("[data-key]"); if (b) pressKey(b.dataset.key); });
+  $("keypad-set").addEventListener("click", commitKeypad);
+  $("keypad-cancel").addEventListener("click", closeKeypad);
+  document.addEventListener("pointerdown", (e) => {
+    if (keypad.open && !e.target.closest("#keypad, #bpm-display, .transport")) closeKeypad();
+  }, true);
+  document.addEventListener("keydown", (e) => {
+    if (!keypad.open) return;
+    if (/^[0-9]$/.test(e.key)) { e.preventDefault(); pressKey(e.key); }
+    else if (e.key === "." || e.key === ",") { e.preventDefault(); pressKey("."); }
+    else if (e.key === "Backspace") { e.preventDefault(); pressKey("back"); }
+    else if (e.key === "Enter") { e.preventDefault(); commitKeypad(); }
+    else if (e.key === "Escape") { e.preventDefault(); closeKeypad(); }
   });
-  bpmInput.addEventListener("blur", () => closeBpmEdit(true));
+  window.addEventListener("resize", () => { if (keypad.open) placeKeypad(); });
 
   function onBeatTap(e) {
     const dot = e.target.closest(".beat");

@@ -207,3 +207,10 @@ with tempo changes." Also heard accents on the wood block where there shouldn't 
 - **Log drum:** VCSL's "Hi" files measure lower (≈155 Hz) than "Lo" (≈185 Hz);
   accents now get the higher tongue.
 - New test: takes rotated within a level must match in brightness.
+
+## D-025 · POCKET's own tempo keypad (owner, 2026-11-26)
+Owner: Quick Click should open a number-only keyboard. iPadOS shows the full
+keyboard (numbers layout) even for `inputmode="decimal"`, so tapping the tempo
+now opens an in-app pad (0–9, ".", delete, Cancel, Set) anchored under the
+number, styled per concept. Up to 5 digits and 2 decimals; 20–300 validated.
+Hardware keys supported. The text field is removed.

@@ -229,3 +229,12 @@ errors. Screenshots reviewed at 1180×820 and 390×844.
   "Now 65 BPM" and landed on the next unscheduled sixteenth (step 7), not the next
   beat; an accent tap updated the beat row at once (no preview) and landed on the
   next sixteenth; a meter change still previewed and landed on bar 2; no errors.
+
+## 2026-11-26 · Tempo keypad (headless Chromium, iPad Pro 11 landscape emulation)
+
+Tapping the tempo opened the pad with focus on "1", showing 120 dimmed; no text
+field remains (so no system keyboard); typing 1-3-2-.-5 showed 132.5 and Set
+applied it; 400 kept the pad open with "Enter a tempo from 20 to 300."; Enter
+from a hardware keyboard set 88; Escape kept 88; while playing, Set showed
+"Now 120 BPM"; Stop worked with the pad open; tapping outside closed it; no
+console errors. Screenshot reviewed. Not yet tried on the iPad.

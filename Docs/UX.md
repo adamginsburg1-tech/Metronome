@@ -48,11 +48,15 @@ leaves only by Start or Dismiss. A failed start returns to Ready with a reason.
   volume (see O-2).
 
 ### J2 · Set an exact tempo
-1. Tap the tempo number. It becomes a field with the number keypad, value selected.
-2. Type the tempo and press Done (or tap outside).
+1. Tap the tempo number. POCKET's own number pad opens under it (iPadOS has no
+   number-only keyboard for web pages): 0–9, decimal point, delete, Cancel, Set.
+   The current tempo shows dimmed; the first key replaces it.
+2. Type the tempo and tap **Set**. Tapping outside or Cancel keeps the old tempo.
+   A hardware keyboard works too (digits, ".", Backspace, Enter, Escape).
+- The pad sits above the transport, so Start/Stop stay reachable.
 
 - Accepts 20–300, with up to two decimals (112.5).
-- Out of range: keep the field open and show "Enter a tempo from 20 to 300."
+- Out of range: keep the pad open and show "Enter a tempo from 20 to 300."
 - Escape (hardware keyboard) cancels and keeps the old tempo.
 - Target: set an exact tempo and start within 10 seconds (plan §10 usability gate).
 
