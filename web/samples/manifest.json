@@ -151,6 +151,56 @@
   ],
   "voices": [
     {
+      "id": "kickkit",
+      "label": "Kick (kit, synthesized)",
+      "synth": "kick",
+      "maxDur": 0.45,
+      "levels": {
+        "accent": [
+          {
+            "pitch": 175,
+            "click": 1.0,
+            "decay": 0.26,
+            "seed": 11
+          },
+          {
+            "pitch": 170,
+            "click": 0.95,
+            "decay": 0.25,
+            "seed": 12
+          }
+        ],
+        "normal": [
+          {
+            "pitch": 155,
+            "click": 0.75,
+            "decay": 0.24,
+            "seed": 21
+          },
+          {
+            "pitch": 150,
+            "click": 0.7,
+            "decay": 0.235,
+            "seed": 22
+          }
+        ],
+        "ghost": [
+          {
+            "pitch": 130,
+            "click": 0.4,
+            "decay": 0.2,
+            "seed": 31
+          },
+          {
+            "pitch": 126,
+            "click": 0.35,
+            "decay": 0.19,
+            "seed": 32
+          }
+        ]
+      }
+    },
+    {
       "id": "kick",
       "label": "Kick",
       "dir": "kick",

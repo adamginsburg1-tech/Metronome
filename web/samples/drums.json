@@ -2,6 +2,54 @@
   "source": "Versilian Community Sample Library (VCSL), https://github.com/sgossner/VCSL, CC0 1.0",
   "voices": [
     {
+      "id": "kickkit",
+      "label": "Kick (kit, synthesized)",
+      "levels": {
+        "accent": [
+          {
+            "file": "drums/kickkit/accent-1.wav",
+            "from": "synth kick {\"pitch\":175,\"click\":1,\"decay\":0.26,\"seed\":11}",
+            "sr": 44100,
+            "ms": 450
+          },
+          {
+            "file": "drums/kickkit/accent-2.wav",
+            "from": "synth kick {\"pitch\":170,\"click\":0.95,\"decay\":0.25,\"seed\":12}",
+            "sr": 44100,
+            "ms": 450
+          }
+        ],
+        "normal": [
+          {
+            "file": "drums/kickkit/normal-1.wav",
+            "from": "synth kick {\"pitch\":155,\"click\":0.75,\"decay\":0.24,\"seed\":21}",
+            "sr": 44100,
+            "ms": 450
+          },
+          {
+            "file": "drums/kickkit/normal-2.wav",
+            "from": "synth kick {\"pitch\":150,\"click\":0.7,\"decay\":0.235,\"seed\":22}",
+            "sr": 44100,
+            "ms": 450
+          }
+        ],
+        "ghost": [
+          {
+            "file": "drums/kickkit/ghost-1.wav",
+            "from": "synth kick {\"pitch\":130,\"click\":0.4,\"decay\":0.2,\"seed\":31}",
+            "sr": 44100,
+            "ms": 450
+          },
+          {
+            "file": "drums/kickkit/ghost-2.wav",
+            "from": "synth kick {\"pitch\":126,\"click\":0.35,\"decay\":0.19,\"seed\":32}",
+            "sr": 44100,
+            "ms": 450
+          }
+        ]
+      }
+    },
+    {
       "id": "kick",
       "label": "Kick",
       "levels": {

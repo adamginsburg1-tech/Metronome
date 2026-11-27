@@ -84,7 +84,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Grooves: 13 starter grooves, step editor, user grooves, per-song mixer (D-033)
 - ☑ Swing steps refined to the drum-machine convention (D-034)
 - ☑ Port `grooveEventsIn` to the Swift core (D-036)
-- ☐ Better kick sample (VCSL has only concert bass drums)
+- ☑ Kit kick: synthesized, Concert kept as an option (D-037)
 
 ## Later (M2+)
 Interval trainer & gap click (segments + `.muted` already support this), session

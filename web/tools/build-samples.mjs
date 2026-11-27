@@ -125,6 +125,36 @@ for (const kit of manifest.kits) {
   kits.push(out);
 }
 writeFileSync(join(samplesDir, "kits.json"), JSON.stringify({ source: manifest.source, kits }, null, 2) + "\n");
+/**
+ * Synthesized drums (ours, so no licence questions): `spec` is a take's settings,
+ * e.g. { pitch: 150, click: 1, decay: 0.24, seed: 1 }.
+ *  kick: sine falling from `pitch` to 46 Hz (35 ms), body decay `decay` s, a short
+ *  filtered-noise and 1.6 kHz click for the beater, gentle saturation.
+ */
+function synthDrum(kind, spec) {
+  const sr = 44100, n = Math.round(sr * 0.5), data = new Float32Array(n);
+  let seed = spec.seed >>> 0 || 1;
+  const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 * 2 - 1; };
+  if (kind !== "kick") throw new Error(`unknown synth drum ${kind}`);
+  // Tuned for small speakers too: a body that ends at 52 Hz, a 2nd harmonic from
+  // saturation, and a beater click (noise + 2.8 kHz) so the kick reads on an iPad.
+  let phase = 0, lp = 0, hp = 0, prev = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / sr;
+    const f = 52 + (spec.pitch - 52) * Math.exp(-t / 0.03);
+    phase += (2 * Math.PI * f) / sr;
+    const attack = Math.min(1, t / 0.001);
+    const body = Math.sin(phase) * Math.exp(-t / spec.decay) * attack;
+    const punch = 0.35 * Math.sin(2 * phase) * Math.exp(-t / 0.05);
+    const white = rnd();
+    hp = 0.6 * (hp + white - prev); prev = white;                  // brightened noise for the beater
+    lp += 0.5 * (hp - lp);
+    const beater = spec.click * (0.9 * lp * Math.exp(-t / 0.003) + 0.45 * Math.sin(2 * Math.PI * 2800 * t) * Math.exp(-t / 0.004));
+    data[i] = Math.tanh(2.2 * (body + punch + beater)) / Math.tanh(2.2);
+  }
+  return { sr, data };
+}
+
 // Groove voices (kick, snare, …): one file set per voice and level, written to
 // web/samples/drums/<voice>/<level>-<n>.wav and listed in drums.json.
 const voices = [];
@@ -134,12 +164,13 @@ for (const v of manifest.voices || []) {
   const out = { id: v.id, label: v.label, levels: {} };
   for (const [level, files] of Object.entries(v.levels)) {
     out.levels[level] = files.map((f, n) => {
-      const src = decodeWav(readFileSync(join(rawDir, v.dir, f)));
+      const src = v.synth ? synthDrum(v.synth, f) : decodeWav(readFileSync(join(rawDir, v.dir, f)));
       const { y, onsetMs } = prepare(src, v.maxDur);
       const file = `drums/${v.id}/${level}-${n + 1}.wav`;
       writeFileSync(join(samplesDir, file), encodeWav16(y, src.sr));
-      console.log(`${v.id.padEnd(8)} ${level}-${n + 1}  ${String(Math.round((y.length / src.sr) * 1000)).padStart(4)} ms  onset ${onsetMs.toFixed(2)} ms  ← ${f}`);
-      return { file, from: f, sr: src.sr, ms: Math.round((y.length / src.sr) * 1000) };
+      const from = v.synth ? `synth ${v.synth} ${JSON.stringify(f)}` : f;
+      console.log(`${v.id.padEnd(8)} ${level}-${n + 1}  ${String(Math.round((y.length / src.sr) * 1000)).padStart(4)} ms  onset ${onsetMs.toFixed(2)} ms  ← ${from}`);
+      return { file, from, sr: src.sr, ms: Math.round((y.length / src.sr) * 1000) };
     });
   }
   voices.push(out);

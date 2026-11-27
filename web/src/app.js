@@ -117,7 +117,7 @@
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
         workspace: settings.workspace, routines, routineId, routineWorking: routineCfg, sessions, presets, presetId: settings.presetId,
         gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, swing: settings.swing, layout: settings.layout, tempoLock: settings.tempoLock, presetNotes,
-        grooveOn: settings.grooveOn, grooveId: settings.grooveId, grooveLanes: settings.grooveLanes, mix: settings.mix, userGrooves, answers, notes: $("notes").value,
+        grooveOn: settings.grooveOn, grooveId: settings.grooveId, kickVoice: settings.kickVoice, grooveLanes: settings.grooveLanes, mix: settings.mix, userGrooves, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -2533,9 +2533,14 @@
     return eng.drums;
   }
   const drumTurns = {};
+  // The kick lane plays either voice: a synthesized kit kick (default) or the
+  // recorded concert bass drum.
+  const KICK_VOICES = [{ id: "kickkit", label: "Kit", note: "synthesized" }, { id: "kick", label: "Concert", note: "recorded" }];
+  const voiceFor = (lane) => (lane === "kick" ? settings.kickVoice : lane);
   function drumTake(lane, level) {
-    const takes = drumBuffers()[lane][level];
-    const key = lane + level;
+    const voice = voiceFor(lane);
+    const takes = (drumBuffers()[voice] || drumBuffers()[lane])[level];
+    const key = voice + level;
     drumTurns[key] = ((drumTurns[key] || 0) + 1) % takes.length;
     return takes[drumTurns[key]];
   }
@@ -2629,6 +2634,8 @@
   settings.grooveId = allGrooves().some((g) => g.id === stored.grooveId) ? stored.grooveId : STARTER_GROOVES[0].id;
   settings.grooveLanes = stored.grooveLanes && typeof stored.grooveLanes === "object" ? stored.grooveLanes : null;
   settings.mix = cleanMix(stored.mix);
+  settings.kickVoice = KICK_VOICES.some((k) => k.id === stored.kickVoice) && DRUM_VOICES.some((v) => v.id === stored.kickVoice) ? stored.kickVoice
+    : DRUM_VOICES.some((v) => v.id === "kickkit") ? "kickkit" : "kick";
 
   const grooveDef = () => allGrooves().find((g) => g.id === settings.grooveId) || STARTER_GROOVES[0];
   const grooveMeter = (g) => METERS.find((m) => m.id === g.meterId) || METERS[0];
@@ -2696,6 +2703,11 @@
     $("groove-delete").hidden = !userGrooves.some((x) => x.id === g.id);
     $("groove-update").hidden = !userGrooves.some((x) => x.id === g.id);
     $("groove-update").disabled = !grooveEdited();
+    renderChips($("kick-voice-chips"), KICK_VOICES.filter((k) => DRUM_VOICES.some((v) => v.id === k.id)), (k) => k.id === settings.kickVoice, (k) => {
+      settings.kickVoice = k.id;
+      log(`Kick sound: ${k.label}`);
+      if (!isRunning()) previewHit("kick", 3);
+    });
     renderGrooveGrid();
     renderMixer();
   }

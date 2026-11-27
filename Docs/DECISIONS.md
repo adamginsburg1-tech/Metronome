@@ -313,3 +313,10 @@ core's `grooveEventsIn`: same grid, tempo following, count-in and gap silence, a
 the groove-owned swing pairing of D-035 (playhead lane ignored, pairs restart each
 bar). `segmentFrames(_:)` ports `segmentSpan`. Parity is checked by giving both
 test suites the same cases and frame values (48 kHz).
+
+## D-037 — Kit kick is synthesized; concert kick stays as an option
+VCSL has no drum-kit kick, and the muted concert bass drum is soft and boomy. The
+default kick is now synthesized at build time (sine body with pitch drop, 2nd
+harmonic, beater click), with two takes per level. Through a 150 Hz small-speaker
+filter it keeps as much level in its first 30 ms as the concert kick (0.52 vs 0.53
+of full RMS at accent). Groove panel › Kick sound: Kit (default) or Concert.

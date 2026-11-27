@@ -353,3 +353,10 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   mid-bar tempo change and gap bars, eighth/sixteenth swing under each click, playhead
   lane ignored, pairs restart each bar in 7/8, segment frames.
 - **Node:** 46 tests pass; the 7/8 case gives the same frames as Swift.
+
+## Kit kick (D-037)
+- **Small-speaker check (150 Hz high-pass, first 30 ms RMS / full):** kit accent 0.52,
+  normal 0.43, ghost 0.31; concert normal 0.53; snare 0.99.
+- **Browser:** Kit is the default and the kick lane plays the synthesized buffers;
+  choosing Concert switches to the recorded ones; the choice persists; groove, cc,
+  presets, hig-check and swing timing checks pass with no errors.
