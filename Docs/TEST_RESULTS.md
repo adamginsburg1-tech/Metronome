@@ -303,3 +303,12 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   8.00 …); Swing row hidden for no subdivision and triplets, shown for ÷2; Settings
   greys it out for triplets with an explanation; the console display shows
   "swing 60%"; regression checks pass; no errors.
+
+## Command Center layout (D-031)
+- **Browser (iPad Pro 11 portrait/landscape, phone width):** dense layout is the
+  default; play, pause/resume, stop, prev/next song, tempo-lock toast, panic
+  restart, gap/count-in/beat-one toggles and per-song notes all work; Settings →
+  Layout → Clean restores the earlier screen; no horizontal overflow at any size.
+- **Regression scripts** (presets, gaps, swing, immediate changes, settings sheet,
+  samples, keypad, HIG checks, practice, routines) pass in the Clean layout; no errors.
+- **Node:** 37 tests pass. **Swift:** 41 tests pass (core unchanged).

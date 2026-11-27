@@ -254,3 +254,13 @@ points move later by (swing − 50)/50 of a step. Even grid points (beats, bar
 lines, segment anchors) never move, so tempo changes, gaps and bar maths are
 untouched; swing can change mid-bar like accents. JS and Swift compute the same
 offsets (tests check frames/times in both). Practice routines stay straight for now.
+
+## D-031 — Dense Command Center is the default layout; Clean is a setting
+Following the owner's Master Click reference, the default screen is a dense
+"Command Center": Now playing (LCD + knob), big transport keys (Stop, Play/Pause,
+Prev, Next song), one-tap toggles (count-in, gap, beat-one accent, tempo lock,
+panic restart), live counters (bar, beat, elapsed, config), a setlist built from
+presets with Next up / After that, the click engine panel and per-preset song
+notes. The earlier layout stays as **Settings → Look → Layout → Clean**. Both
+layouts drive the same engine and settings; only `data-layout` changes. Tempo
+lock blocks every tempo input (nudges, tap, dial, keypad, arrow keys).

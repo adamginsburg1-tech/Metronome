@@ -295,3 +295,13 @@ its own meter, accents, subdivision and gap click, and play/rest times.
   (sixteenths)".
 - Changes apply immediately while playing. Presets remember swing; the console
   display shows "swing 60%".
+
+### J12 — Command Center (dense default)
+1. Open the app: Now playing, transport keys, toggles, counters, setlist and song
+   notes are all on one screen; nothing important is behind a menu.
+2. Tap a song in the setlist (or Prev/Next) to load its preset; Next up / After
+   that show what follows.
+3. Tap Lock before a gig: tempo can no longer be nudged by accident (a toast says why).
+4. Panic restarts the click cleanly from bar 1.
+5. Type notes for the current song; they are saved with that preset.
+6. Prefer fewer controls? Settings → Look → Layout → Clean.

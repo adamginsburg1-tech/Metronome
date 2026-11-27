@@ -116,7 +116,7 @@
         accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
         workspace: settings.workspace, routines, routineId, routineWorking: routineCfg, sessions, presets, presetId: settings.presetId,
-        gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, swing: settings.swing, answers, notes: $("notes").value,
+        gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, swing: settings.swing, layout: settings.layout, tempoLock: settings.tempoLock, presetNotes, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -157,6 +157,9 @@
     gapSeed: Number.isInteger(stored.gapSeed) ? stored.gapSeed : Math.floor(1000 + Math.random() * 9000),
     gapHideLights: stored.gapHideLights ?? true,
     swing: SWING_CHOICES_IDS.includes(stored.swing) ? stored.swing : 50,
+    // Layout: "dense" command centre (default, owner 2026-11-27) or "clean".
+    layout: stored.layout === "clean" ? "clean" : "dense",
+    tempoLock: stored.tempoLock === true,
     presetId: typeof stored.presetId === "string" ? stored.presetId : Array.isArray(stored.presets) ? null : "p-quick",
   };
   const answers = stored.answers || {};
@@ -191,6 +194,9 @@
 
   // Presets: named Quick Click setups (plan §08 "Preset"). Starter examples are
   // added once and can be deleted.
+  // Notes per preset ("song"), kept apart from the preset values so editing them
+  // never marks a preset as edited.
+  const presetNotes = stored.presetNotes && typeof stored.presetNotes === "object" ? stored.presetNotes : {};
   const PRESET_FIELDS = ["bpm", "meterId", "accents", "subdivision", "swing", "sound", "countInMode", "countInBars", "gapMode", "gapPlay", "gapMute", "gapPercent", "gapSeed"];
   const presets = Array.isArray(stored.presets) ? stored.presets : [
     { id: "p-quick", name: "Quick Click", bpm: 120, meterId: "4/4", accents: null, subdivision: 1, sound: "wood", countInMode: "every", countInBars: 1 },
@@ -549,6 +555,7 @@
     const pill = $("status-pill");
     pill.dataset.state = s;
     pill.textContent = { idle: "Ready", countIn: "Count-in", playing: "Running", paused: "Paused", interrupted: "Stopped" }[s];
+    if (document.getElementById("cc-play")) renderCommandKeys();
     const running = s === "playing" || s === "countIn";
     // Primary: Start / Stop / Resume. Secondary: Pause while running, Stop while paused.
     const primary = $("start");
@@ -906,6 +913,14 @@
       }
       const elapsed = eng.elapsedBefore + (performance.now() - eng.runStartPerf) / 1000;
       $("pos-time").textContent = fmtClock(elapsed);
+      if (settings.layout === "dense") {
+        const barText = eng.currentBar === null ? "–" : eng.currentBar < 0 ? `C${eng.currentBar + eng.countInBars + 1}` : String(eng.currentBar + eng.barOffset + 1);
+        if ($("cc-bar").textContent !== barText) $("cc-bar").textContent = barText;
+        const beatText = eng.currentUnit >= 0 ? String(eng.currentUnit + 1) : "–";
+        if ($("cc-beat").textContent !== beatText) $("cc-beat").textContent = beatText;
+        const t = `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, "0")}`;
+        if ($("cc-length").textContent !== t) $("cc-length").textContent = t;
+      }
       if (rt.active && rt.current) $("pos-bar").textContent = `Stage ${rt.current.stage + 1}/${rt.stages.length}`;
       else $("pos-bar").textContent = eng.currentBar === null ? (eng.barOffset ? `Bar ${eng.barOffset + 1}` : "Bar –") : eng.currentBar < 0 ? `Count-in ${eng.currentBar + eng.countInBars + 1}` : `Bar ${eng.currentBar + eng.barOffset + 1}`;
     }
@@ -1051,6 +1066,13 @@
     chip("tempo-change-chips", TEMPO_CHANGE, (t) => t.id === settings.tempoChange, (t) => { settings.tempoChange = t.id; log(`Tempo changes land on: ${t.label}`); });
     renderLcd();
     renderPracticeChips();
+    chip("layout-chips", [{ id: "dense", label: "Dense", note: "command centre" }, { id: "clean", label: "Clean" }], (l) => l.id === settings.layout, (l) => {
+      if (l.id === settings.layout) return;
+      settings.layout = l.id;
+      applyLayout();
+      log(`Layout: ${l.label}`);
+    });
+    if (document.getElementById("cc-play")) renderCommandKeys();
     chip("concept-chips", CONCEPTS, (c) => c.id === settings.concept, (c) => {
       if (c.id === settings.concept) return;
       settings.concept = c.id;
@@ -1208,14 +1230,20 @@
     if (!$("settings").hidden) return;
     if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       e.preventDefault();
-      setBpm(Math.round(settings.bpm) + (e.key === "ArrowUp" ? 1 : -1) * (e.shiftKey ? 5 : 1));
+      if (!tempoLocked()) setBpm(Math.round(settings.bpm) + (e.key === "ArrowUp" ? 1 : -1) * (e.shiftKey ? 5 : 1));
     }
   });
   // Nudges. ±1 repeats while held: after 400 ms, 8 steps a second, no
   // acceleration; stops when the finger lifts or slides off (Docs/UX.md J3).
   const HOLD_DELAY = 400;
   const HOLD_RATE = 125;
-  const nudge = (b) => setBpm(Math.round(settings.bpm) + Number(b.dataset.nudge));
+  /** Tempo lock (Command Center switch): stops accidental tempo changes. */
+  function tempoLocked() {
+    if (!settings.tempoLock) return false;
+    showToast("Tempo is locked. Turn off Tempo lock to change it.");
+    return true;
+  }
+  const nudge = (b) => { if (!tempoLocked()) setBpm(Math.round(settings.bpm) + Number(b.dataset.nudge)); };
   let hold = null;
   function endHold() {
     if (!hold) return;
@@ -1246,6 +1274,7 @@
 
   const taps = [];
   $("tap").addEventListener("click", () => {
+    if (tempoLocked()) return;
     const now = performance.now();
     if (taps.length && now - taps[taps.length - 1] > 2000) taps.length = 0;
     taps.push(now);
@@ -1331,6 +1360,7 @@
     cfg.onSet(v);
   }
   $("bpm-display").addEventListener("click", () => {
+    if (tempoLocked()) return;
     if (keypad.open && keypad.cfg.anchor === $("bpm-display")) { closeKeypad(); return; }
     openKeypad({ title: "Set tempo", value: settings.bpm, min: T.TEMPO_MIN, max: T.TEMPO_MAX, decimals: 2, unit: "BPM", anchor: $("bpm-display"), onSet: setBpm });
   });
@@ -2014,7 +2044,118 @@
     $("preset-name").textContent = p ? p.name : "Not saved";
     $("preset-edited").hidden = !p || samePreset(p);
   }
+  // ---------- command centre ----------
+  function renderCommandKeys() {
+    const running = isRunning();
+    const play = $("cc-play");
+    play.dataset.state = running ? "running" : eng.status === "paused" ? "paused" : "idle";
+    $("cc-play-label").textContent = running ? "Pause" : eng.status === "paused" ? "Resume" : "Play";
+    play.querySelector("span[aria-hidden]").textContent = running ? "❚❚" : "▶";
+    $("cc-stop").disabled = !(running || eng.status === "paused");
+    const i = presets.findIndex((p) => p.id === settings.presetId);
+    $("cc-prev").disabled = presets.length < 2 || i <= 0;
+    $("cc-next").disabled = presets.length < 2 || i >= presets.length - 1;
+    $("cc-countin").setAttribute("aria-pressed", String(settings.countInMode !== "off"));
+    $("cc-gap").setAttribute("aria-pressed", String(settings.gapMode !== "off"));
+    const meter = currentMeter();
+    $("cc-beat1").setAttribute("aria-pressed", String(currentAccents(meter)[0] === L.downbeat));
+    $("cc-lock").setAttribute("aria-pressed", String(settings.tempoLock));
+    const p = currentPattern();
+    $("cc-config").textContent = `${subdivisionName(p)}${p.swingOffset ? ` · swing ${p.swing}%` : ""}${settings.gapMode !== "off" ? " · gaps" : ""}`;
+  }
+  function songMeta(p) {
+    const m = METERS.find((x) => x.id === p.meterId);
+    return `${m ? m.label || m.id : p.meterId}`;
+  }
+  function renderSetlist() {
+    const list = $("cc-songs");
+    list.textContent = "";
+    presets.forEach((p, i) => {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "cc-song";
+      b.setAttribute("aria-current", String(p.id === settings.presetId));
+      const kit = SOUNDS.find((k) => k.id === presetValue(p, "sound"));
+      b.innerHTML = "";
+      for (const [cls, text] of [["no", String(i + 1).padStart(2, "0")], ["name", p.name], ["bpm-col", `${fmtBpm(p.bpm)} BPM`], ["meta", songMeta(p)]]) {
+        const span = document.createElement("span"); span.className = cls; span.textContent = text; b.append(span);
+      }
+      b.setAttribute("aria-label", `${i + 1}. ${p.name}, ${fmtBpm(p.bpm)} BPM, ${songMeta(p)}${kit ? `, ${kit.label}` : ""}`);
+      b.addEventListener("click", () => { if (p.id !== settings.presetId) loadPreset(p); });
+      li.append(b);
+      list.append(li);
+    });
+    $("cc-setlist-count").textContent = presets.length ? `· ${presets.length}` : "";
+    const i = presets.findIndex((p) => p.id === settings.presetId);
+    const next = i >= 0 ? presets[i + 1] : presets[0];
+    const after = i >= 0 ? presets[i + 2] : presets[1];
+    $("cc-next-name").textContent = next ? next.name : "–";
+    $("cc-next-sub").textContent = next ? `${fmtBpm(next.bpm)} BPM · ${songMeta(next)}` : "End of list";
+    $("cc-after-name").textContent = after ? after.name : "–";
+    $("cc-after-sub").textContent = after ? `${fmtBpm(after.bpm)} BPM · ${songMeta(after)}` : "";
+    const notes = $("cc-notes");
+    const cur = currentPreset();
+    notes.disabled = !cur;
+    if (document.activeElement !== notes) notes.value = cur ? presetNotes[cur.id] || "" : "";
+    $("cc-notes-state").textContent = cur ? `${cur.name} · saved automatically` : "Save the setup as a song to keep notes";
+    renderCommandKeys();
+  }
+  let notesTimer = null;
+  $("cc-notes").addEventListener("input", (e) => {
+    const cur = currentPreset();
+    if (!cur) return;
+    presetNotes[cur.id] = e.target.value;
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(saveStore, 400);
+  });
+  function stepSong(dir) {
+    const i = presets.findIndex((p) => p.id === settings.presetId);
+    const target = presets[i < 0 ? 0 : i + dir];
+    if (target) loadPreset(target);
+  }
+  $("cc-play").addEventListener("click", () => (isRunning() ? pause() : eng.status === "paused" ? start(true) : start()));
+  $("cc-stop").addEventListener("click", () => stop());
+  $("cc-prev").addEventListener("click", () => stepSong(-1));
+  $("cc-next").addEventListener("click", () => stepSong(1));
+  $("cc-countin").addEventListener("click", () => {
+    settings.countInMode = settings.countInMode === "off" ? "every" : "off";
+    log(`Count-in: ${settings.countInMode === "off" ? "off" : "every start"}`);
+    renderSetup(); renderCommandKeys(); saveStore();
+  });
+  $("cc-gap").addEventListener("click", () => {
+    settings.gapMode = settings.gapMode === "off" ? (settings.lastGapMode || "cycle") : "off";
+    if (settings.gapMode !== "off") settings.lastGapMode = settings.gapMode;
+    gapsChanged(); renderCommandKeys();
+  });
+  $("cc-beat1").addEventListener("click", () => {
+    const meter = currentMeter();
+    const accents = currentAccents(meter).slice();
+    accents[0] = accents[0] === L.downbeat ? (meter.grouping[0] > 1 ? L.group : L.normal) : L.downbeat;
+    settings.accents = accents;
+    queueChange("pattern"); renderBeats(); renderActiveBeat(); renderCommandKeys(); saveStore();
+  });
+  $("cc-lock").addEventListener("click", () => {
+    settings.tempoLock = !settings.tempoLock;
+    log(`Tempo lock: ${settings.tempoLock ? "on" : "off"}`);
+    renderCommandKeys(); saveStore();
+  });
+  // Panic restart: stop everything, then start again cleanly from the count-in.
+  $("cc-panic").addEventListener("click", async () => {
+    log("Panic restart", "warn");
+    if (isRunning() || eng.status === "paused" || eng.status === "interrupted") stop();
+    hideBanner();
+    await start();
+  });
+  $("cc-add").addEventListener("click", () => { openPresets($("cc-manage")); openPresetName("new"); });
+  $("cc-manage").addEventListener("click", (e) => ($("presets").hidden ? openPresets(e.currentTarget) : closePresets()));
+
+  function applyLayout() {
+    document.documentElement.dataset.layout = settings.layout;
+  }
+
   function renderPresets() {
+    if (document.getElementById("cc-songs")) renderSetlist();
     renderPresetCurrent();
     const list = $("preset-list");
     list.textContent = "";
@@ -2278,11 +2419,11 @@
       if (!drag) return;
       const moved = (drag.y - e.clientY) + (e.clientX - drag.x);
       const next = drag.start + Math.trunc(moved / 4);
-      if (next !== Math.round(settings.bpm)) setBpm(next);
+      if (next !== Math.round(settings.bpm) && !settings.tempoLock) setBpm(next);
     });
     for (const type of ["pointerup", "pointercancel"]) dial.addEventListener(type, () => { drag = null; });
     dial.addEventListener("keydown", (e) => {
-      const step = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 }[e.key];
+      const step = settings.tempoLock ? undefined : { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 }[e.key];
       if (step) { e.preventDefault(); setBpm(Math.round(settings.bpm) + step); }
       if (e.key === "Home") { e.preventDefault(); setBpm(T.TEMPO_MIN); }
       if (e.key === "End") { e.preventDefault(); setBpm(T.TEMPO_MAX); }
@@ -2328,6 +2469,7 @@
   // ---------- boot ----------
   buildDial();
   applyConcept();
+  applyLayout();
   setWorkspace(settings.workspace);
   renderTempo();
   renderBeats();

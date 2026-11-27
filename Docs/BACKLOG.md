@@ -80,6 +80,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Presets (save as new / update / rename / delete, starter presets) and
   last-used state, on device (D-026)
 - ☑ Swing for paired divisions, both cores, presets (D-030)
+- ☑ Dense Command Center default layout, Clean option in Settings (D-031)
 
 ## Later (M2+)
 Interval trainer & gap click (segments + `.muted` already support this), session

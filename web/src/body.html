@@ -28,6 +28,7 @@
     </nav>
 
     <section class="panel play" aria-label="Tempo">
+      <h2 class="cc-head cc-only">Now playing</h2>
       <div class="tempo">
         <div class="lcd-head" aria-hidden="true"><span id="lcd-title">Quick Click</span><span id="lcd-meter">4/4</span></div>
         <span class="beat-glyph" id="beat-glyph" aria-hidden="true">♩</span>
@@ -57,6 +58,7 @@
     </section>
 
     <section class="panel quick" id="quick-panel" aria-label="Meter and volume">
+      <h2 class="cc-head cc-only">Click engine</h2>
       <div class="preset-row">
         <div class="preset-current"><span class="label">Preset</span><strong id="preset-name">Quick Click</strong><span class="preset-edited" id="preset-edited" hidden>· edited</span></div>
         <button type="button" class="btn" id="open-presets" aria-haspopup="dialog" aria-controls="presets" aria-expanded="false">Presets</button>
@@ -77,6 +79,44 @@
         </div>
       </div>
       <p class="hint">Count-in, sounds, look and iPad options are in Settings.</p>
+    </section>
+
+    <!-- Command Center panels (dense layout only) -->
+    <section class="panel cc-only cc-keys" id="cc-keys" aria-label="Transport">
+      <div class="cc-transport">
+        <button type="button" class="cc-key stop" id="cc-stop"><span aria-hidden="true">■</span>Stop</button>
+        <button type="button" class="cc-key go" id="cc-play"><span aria-hidden="true">▶</span><span id="cc-play-label">Play</span></button>
+        <button type="button" class="cc-key nav" id="cc-prev"><span aria-hidden="true">⏮</span>Prev</button>
+        <button type="button" class="cc-key nav" id="cc-next"><span aria-hidden="true">⏭</span>Next</button>
+      </div>
+      <div class="cc-toggles" role="group" aria-label="Quick switches">
+        <button type="button" class="cc-toggle" id="cc-countin" aria-pressed="true">Count-in</button>
+        <button type="button" class="cc-toggle" id="cc-gap" aria-pressed="false">Gap click</button>
+        <button type="button" class="cc-toggle" id="cc-beat1" aria-pressed="true">Beat one accent</button>
+        <button type="button" class="cc-toggle" id="cc-lock" aria-pressed="false">Tempo lock</button>
+        <button type="button" class="cc-toggle panic" id="cc-panic">Panic restart</button>
+      </div>
+      <div class="cc-counters" aria-live="off">
+        <div class="cc-counter"><strong id="cc-bar">–</strong><span>Bar</span></div>
+        <div class="cc-counter"><strong id="cc-beat">–</strong><span>Beat</span></div>
+        <div class="cc-counter"><strong id="cc-length">0:00</strong><span>Time</span></div>
+        <div class="cc-counter wide"><strong id="cc-config">Quarter</strong><span>Active</span></div>
+      </div>
+    </section>
+
+    <section class="panel cc-only cc-setlist" id="cc-setlist" aria-label="Setlist">
+      <div class="cc-head-row"><h2 class="cc-head">Setlist <span id="cc-setlist-count"></span></h2><button type="button" class="btn small" id="cc-manage">Manage</button></div>
+      <ol class="cc-songs" id="cc-songs"></ol>
+      <button type="button" class="cc-add" id="cc-add">+ Save current setup as a song</button>
+      <div class="cc-next">
+        <div><span class="cc-label">Next up</span><strong id="cc-next-name">–</strong><span class="cc-sub" id="cc-next-sub"></span></div>
+        <div><span class="cc-label">After that</span><strong id="cc-after-name">–</strong><span class="cc-sub" id="cc-after-sub"></span></div>
+      </div>
+    </section>
+
+    <section class="panel cc-only cc-notes" id="cc-notes-panel" aria-label="Song notes">
+      <div class="cc-head-row"><h2 class="cc-head">Song notes</h2><span class="cc-label" id="cc-notes-state">Per song · saved automatically</span></div>
+      <textarea class="cc-notes-text" id="cc-notes" placeholder="Notes for this song: form, cues, endings, who counts it off…"></textarea>
     </section>
 
     <section class="panel practice" id="practice-view" aria-label="Practice">
@@ -268,6 +308,7 @@
       </div>
 
       <div class="pane" role="tabpanel" id="pane-look" aria-labelledby="tab-look" hidden>
+        <fieldset class="field"><legend>Layout</legend><div class="chips" id="layout-chips"></div><p class="hint">Dense puts everything you use while playing on one screen. Clean keeps only tempo, beats and the main switches.</p></fieldset>
         <fieldset class="field"><legend>Design concept</legend><div class="chips concept-list" id="concept-chips"></div></fieldset>
         <p class="hint">All four run the same click. Try each at your stand, in daylight and at night, and record your verdict in Test.</p>
       </div>
