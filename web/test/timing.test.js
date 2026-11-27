@@ -291,3 +291,54 @@ test("swing: windows stay exact and swing can change mid-bar", () => {
   assert.ok(Math.abs(ev[1] - 0.64) < 1e-9, "first pair still swung");
   assert.ok(Math.abs(ev[3] - 1.5) < 1e-9, "straight from beat 2");
 });
+
+// ---------- grooves ----------
+{
+  const T = require("../src/timing.js");
+  const test = require("node:test");
+  const assert = require("node:assert");
+  const meter = T.makeMeter(4, 4);
+  const rock = { stepsPerUnit: 4, lanes: { kick: [3, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0], hat: [2, 0, 1, 0, 2, 0, 1, 0, 2, 0, 1, 0, 2, 0, 1, 0] } };
+  test("groove hits fall on the 16th grid at tempo", () => {
+    const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter }), tempo: T.makeTempo(120) });
+    const ev = plan.grooveEventsIn(0, 2, rock);
+    const hats = ev.filter((e) => e.lane === "hat").map((e) => +e.time.toFixed(6));
+    assert.deepStrictEqual(hats, [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75]);
+    assert.deepStrictEqual(ev.filter((e) => e.lane === "kick").map((e) => e.time), [0, 1]);
+  });
+  test("groove windows never repeat or skip", () => {
+    const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter, subdivision: 2, swing: 62 }), tempo: T.makeTempo(137), countInBars: 1, startTime: 0.3 });
+    const all = plan.grooveEventsIn(0, 20, rock);
+    let got = [];
+    for (let t = 0; t < 20; t += 0.0371) got = got.concat(plan.grooveEventsIn(t, Math.min(20, t + 0.0371), rock));
+    assert.deepStrictEqual(got.map((e) => e.time + e.lane), all.map((e) => e.time + e.lane));
+  });
+  test("count-in is silent and groove offbeats land on swung clicks", () => {
+    const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter, subdivision: 2, swing: 66 }), tempo: T.makeTempo(100), countInBars: 1 });
+    const ev = plan.grooveEventsIn(0, 30, rock);
+    assert.ok(ev[0].time >= plan.startTimeOfBar(0) - 1e-9);
+    const offClicks = plan.eventsIn(0, 30).filter((e) => e.role === "music" && e.sub === 1).map((e) => e.time);
+    const offHats = ev.filter((e) => e.lane === "hat" && e.step % 4 === 2).map((e) => e.time);
+    offHats.forEach((t, i) => assert.ok(Math.abs(t - offClicks[i]) < 1e-9));
+  });
+  test("tempo change mid-bar keeps grooves continuous and gap bars are silent", () => {
+    const pattern = T.makePattern({ meter });
+    let plan = T.PlaybackPlan.click({ pattern, tempo: T.makeTempo(120), gaps: { mode: "cycle", play: 1, mute: 1 } });
+    plan = plan.changingTempoAt(T.makeTempo(60), { bar: 0, grid: 2 });
+    const hats = plan.grooveEventsIn(0, 6, rock).filter((e) => e.lane === "hat");
+    // bar 0: 8 hats over 0.5 s at 120, then beats 3–4 at 60 (1 s each)
+    assert.deepStrictEqual(hats.filter((e) => e.bar === 0).map((e) => +e.time.toFixed(6)), [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5]);
+    assert.strictEqual(hats.filter((e) => e.bar === 1).length, 0);
+  });
+}
+{
+  const T = require("../src/timing.js");
+  const test = require("node:test");
+  const assert = require("node:assert");
+  test("groove swings eighths over a quarter-note click", () => {
+    const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter: T.makeMeter(4, 4), subdivision: 1, swing: 66 }), tempo: T.makeTempo(60) });
+    const g = { stepsPerUnit: 4, lanes: { hat: [2, 0, 2, 0] } };
+    assert.deepStrictEqual(plan.grooveEventsIn(0, 2, g).map((e) => +e.time.toFixed(4)), [0, 0.66, 1, 1.66]);
+    assert.deepStrictEqual(plan.eventsIn(0, 2).map((e) => e.time), [0, 1]);
+  });
+}

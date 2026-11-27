@@ -282,6 +282,60 @@
       return out;
     }
 
+    /**
+     * Groove hits with t0 <= time < t1, in order (plan §08, grooves). A groove is
+     * { stepsPerUnit, lanes: { name: [level per step, 0 = rest] } } written on its
+     * own fine grid (16ths for /4 meters, 16ths for /8 meters with 2 per unit).
+     * Hits follow each segment's tempo exactly and take the click's swing: every
+     * position inside a swung pair of click steps is warped the same way, so a
+     * groove offbeat lands exactly on the swung click. Count-in bars and gap bars
+     * are silent. Lanes shorter or longer than the bar wrap per bar.
+     */
+    grooveEventsIn(t0, t1, groove) {
+      const out = [];
+      if (!(t1 > t0) || !groove) return out;
+      const lanes = Object.entries(groove.lanes).filter(([, steps]) => steps && steps.length);
+      for (let i = 0; i < this._r.length; i++) {
+        const r = this._r[i];
+        if (r.segment.role !== "music") continue;
+        const end = r.count === Infinity ? Infinity : r.anchor + r.count * r.step;
+        if (end <= t0) continue;
+        if (r.anchor >= t1) break;
+        const p = r.segment.pattern;
+        const per = p.eventsPerBar;
+        const gw = p.meter.unitWhole / groove.stepsPerUnit;            // groove step, whole notes
+        const ratio = gw / p.stepWhole;                                  // groove steps → click steps
+        const stepsPerBar = Math.round((per * p.stepWhole) / gw);
+        // Swing pairs: the click's own steps when they pair up (so groove and
+        // click swing together), otherwise eighths (a groove can swing over a
+        // plain quarter-note click). Units: click steps since the bar line.
+        const o = p.swing > 50 ? (p.swing - 50) / 50 : 0;
+        const half = SWING_SUBDIVISIONS.includes(p.subdivision) ? 1 : (p.meter.unitWhole / 2) / p.stepWhole;
+        const warp = (u) => {
+          if (!o) return u;
+          const v = u / half, pair = Math.floor(v / 2 + 1e-9), w = v - 2 * pair;
+          return half * (2 * pair + (w < 1 ? w * (1 + o) : 1 + o + (w - 1) * (1 - o)));
+        };
+        const first = Math.ceil(r.startGrid / ratio - 1e-9);
+        const est = Math.floor(((t0 - r.anchor) / r.step + r.startGrid) / ratio) - 2;
+        for (let n = Math.max(first, est); ; n++) {
+          const u = n * ratio;
+          if (u - r.startGrid >= r.count - 1e-9) break;
+          const t = r.anchor + (warp(u) - r.startGrid) * r.step;
+          if (t >= t1) break;
+          if (t < t0) continue;
+          const barRel = Math.floor(n / stepsPerBar + 1e-9), j = n - barRel * stepsPerBar;
+          const bar = r.firstBar + barRel;
+          if (this.isGapBar(bar)) continue;
+          for (const [lane, steps] of lanes) {
+            const level = steps[j % steps.length];
+            if (level > 0) out.push({ time: t, bar, step: j, lane, level, segment: i });
+          }
+        }
+      }
+      return out;
+    }
+
     /** Time of a position {bar, grid}; null if outside the plan. */
     timeOf(pos) {
       const loc = this._locate(pos);

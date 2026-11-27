@@ -1,0 +1,263 @@
+{
+  "source": "Versilian Community Sample Library (VCSL), https://github.com/sgossner/VCSL, CC0 1.0",
+  "voices": [
+    {
+      "id": "kick",
+      "label": "Kick",
+      "levels": {
+        "accent": [
+          {
+            "file": "drums/kick/accent-1.wav",
+            "from": "bdrum_muted_fff_rr1.wav",
+            "sr": 44100,
+            "ms": 400
+          },
+          {
+            "file": "drums/kick/accent-2.wav",
+            "from": "bdrum_muted_ff_rr1.wav",
+            "sr": 44100,
+            "ms": 400
+          }
+        ],
+        "normal": [
+          {
+            "file": "drums/kick/normal-1.wav",
+            "from": "bdrum_muted_mf_rr1.wav",
+            "sr": 44100,
+            "ms": 400
+          },
+          {
+            "file": "drums/kick/normal-2.wav",
+            "from": "bdrum_muted_ff_rr1.wav",
+            "sr": 44100,
+            "ms": 400
+          }
+        ],
+        "ghost": [
+          {
+            "file": "drums/kick/ghost-1.wav",
+            "from": "bdrum_muted_mp_rr1.wav",
+            "sr": 44100,
+            "ms": 400
+          },
+          {
+            "file": "drums/kick/ghost-2.wav",
+            "from": "bdrum_muted_mp_rr2.wav",
+            "sr": 44100,
+            "ms": 400
+          }
+        ]
+      }
+    },
+    {
+      "id": "snare",
+      "label": "Snare",
+      "levels": {
+        "accent": [
+          {
+            "file": "drums/snare/accent-1.wav",
+            "from": "Snare2_HitSN_v9_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ],
+        "normal": [
+          {
+            "file": "drums/snare/normal-1.wav",
+            "from": "Snare2_HitSN_v7_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          },
+          {
+            "file": "drums/snare/normal-2.wav",
+            "from": "Snare2_HitSN_v7_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ],
+        "ghost": [
+          {
+            "file": "drums/snare/ghost-1.wav",
+            "from": "Snare2_HitSN_v3_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          },
+          {
+            "file": "drums/snare/ghost-2.wav",
+            "from": "Snare2_HitSN_v3_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 300
+          }
+        ]
+      }
+    },
+    {
+      "id": "hat",
+      "label": "Hi-hat",
+      "levels": {
+        "accent": [
+          {
+            "file": "drums/hat/accent-1.wav",
+            "from": "HiHat_HitC_v4_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 150
+          },
+          {
+            "file": "drums/hat/accent-2.wav",
+            "from": "HiHat_HitC_v4_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 150
+          }
+        ],
+        "normal": [
+          {
+            "file": "drums/hat/normal-1.wav",
+            "from": "HiHat_HitC_v3_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 150
+          },
+          {
+            "file": "drums/hat/normal-2.wav",
+            "from": "HiHat_HitC_v3_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 150
+          }
+        ],
+        "ghost": [
+          {
+            "file": "drums/hat/ghost-1.wav",
+            "from": "HiHat_HitC_v1_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 150
+          },
+          {
+            "file": "drums/hat/ghost-2.wav",
+            "from": "HiHat_HitC_v1_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 150
+          }
+        ]
+      }
+    },
+    {
+      "id": "open",
+      "label": "Open hat",
+      "levels": {
+        "accent": [
+          {
+            "file": "drums/open/accent-1.wav",
+            "from": "HiHat_HitO_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 600
+          }
+        ],
+        "normal": [
+          {
+            "file": "drums/open/normal-1.wav",
+            "from": "HiHat_HitO_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 600
+          },
+          {
+            "file": "drums/open/normal-2.wav",
+            "from": "HiHat_HitO_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 600
+          }
+        ],
+        "ghost": [
+          {
+            "file": "drums/open/ghost-1.wav",
+            "from": "HiHat_HitO_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 600
+          }
+        ]
+      }
+    },
+    {
+      "id": "shaker",
+      "label": "Shaker",
+      "levels": {
+        "accent": [
+          {
+            "file": "drums/shaker/accent-1.wav",
+            "from": "Mid_ShakerHighFaster_Up_rr1.wav",
+            "sr": 44100,
+            "ms": 172
+          },
+          {
+            "file": "drums/shaker/accent-2.wav",
+            "from": "Mid_ShakerHighFaster_Up_rr2.wav",
+            "sr": 44100,
+            "ms": 130
+          }
+        ],
+        "normal": [
+          {
+            "file": "drums/shaker/normal-1.wav",
+            "from": "Mid_ShakerHighFaster_Up_rr2.wav",
+            "sr": 44100,
+            "ms": 130
+          },
+          {
+            "file": "drums/shaker/normal-2.wav",
+            "from": "Mid_ShakerHighFaster_Down_rr1.wav",
+            "sr": 44100,
+            "ms": 177
+          }
+        ],
+        "ghost": [
+          {
+            "file": "drums/shaker/ghost-1.wav",
+            "from": "Mid_ShakerHighFaster_Down_rr1.wav",
+            "sr": 44100,
+            "ms": 177
+          },
+          {
+            "file": "drums/shaker/ghost-2.wav",
+            "from": "Mid_ShakerHighFaster_Down_rr2.wav",
+            "sr": 44100,
+            "ms": 136
+          }
+        ]
+      }
+    },
+    {
+      "id": "tamb",
+      "label": "Tambourine",
+      "levels": {
+        "accent": [
+          {
+            "file": "drums/tamb/accent-1.wav",
+            "from": "Tamb1_Hit_v2_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 350
+          }
+        ],
+        "normal": [
+          {
+            "file": "drums/tamb/normal-1.wav",
+            "from": "Tamb1_Shake_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 350
+          },
+          {
+            "file": "drums/tamb/normal-2.wav",
+            "from": "Tamb1_Shake_rr2_Mid.wav",
+            "sr": 44100,
+            "ms": 350
+          }
+        ],
+        "ghost": [
+          {
+            "file": "drums/tamb/ghost-1.wav",
+            "from": "Tamb1_Hit_v1_rr1_Mid.wav",
+            "sr": 44100,
+            "ms": 350
+          }
+        ]
+      }
+    }
+  ]
+}

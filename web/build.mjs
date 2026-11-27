@@ -23,7 +23,12 @@ const sampleKits = kitsIndex.kits.map((k) => ({
   id: k.id, label: k.label, note: k.note,
   levels: Object.fromEntries(Object.entries(k.levels).map(([lv, takes]) => [lv, takes.map((t) => readFileSync(join(root, "samples", t.file)).toString("base64"))])),
 }));
-const samplesScript = `/* ${kitsIndex.source} */\nwindow.POCKET_SAMPLE_KITS = ${JSON.stringify(sampleKits)};`;
+const drumsIndex = JSON.parse(read("samples/drums.json"));
+const drumVoices = drumsIndex.voices.map((v) => ({
+  id: v.id, label: v.label,
+  levels: Object.fromEntries(Object.entries(v.levels).map(([lv, takes]) => [lv, takes.map((t) => readFileSync(join(root, "samples", t.file)).toString("base64"))])),
+}));
+const samplesScript = `/* ${kitsIndex.source} */\nwindow.POCKET_SAMPLE_KITS = ${JSON.stringify(sampleKits)};\nwindow.POCKET_DRUM_VOICES = ${JSON.stringify(drumVoices)};`;
 const app = read("src/app.js");
 const TITLE = "POCKET Web Test";
 

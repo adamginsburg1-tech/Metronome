@@ -125,4 +125,25 @@ for (const kit of manifest.kits) {
   kits.push(out);
 }
 writeFileSync(join(samplesDir, "kits.json"), JSON.stringify({ source: manifest.source, kits }, null, 2) + "\n");
+// Groove voices (kick, snare, …): one file set per voice and level, written to
+// web/samples/drums/<voice>/<level>-<n>.wav and listed in drums.json.
+const voices = [];
+rmSync(join(samplesDir, "drums"), { recursive: true, force: true });
+for (const v of manifest.voices || []) {
+  mkdirSync(join(samplesDir, "drums", v.id), { recursive: true });
+  const out = { id: v.id, label: v.label, levels: {} };
+  for (const [level, files] of Object.entries(v.levels)) {
+    out.levels[level] = files.map((f, n) => {
+      const src = decodeWav(readFileSync(join(rawDir, v.dir, f)));
+      const { y, onsetMs } = prepare(src, v.maxDur);
+      const file = `drums/${v.id}/${level}-${n + 1}.wav`;
+      writeFileSync(join(samplesDir, file), encodeWav16(y, src.sr));
+      console.log(`${v.id.padEnd(8)} ${level}-${n + 1}  ${String(Math.round((y.length / src.sr) * 1000)).padStart(4)} ms  onset ${onsetMs.toFixed(2)} ms  ← ${f}`);
+      return { file, from: f, sr: src.sr, ms: Math.round((y.length / src.sr) * 1000) };
+    });
+  }
+  voices.push(out);
+}
+writeFileSync(join(samplesDir, "drums.json"), JSON.stringify({ source: manifest.source, voices }, null, 2) + "\n");
+console.log(`wrote ${voices.length} groove voices`);
 console.log(`wrote ${kits.length} kits`);

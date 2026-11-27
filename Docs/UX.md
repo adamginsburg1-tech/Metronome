@@ -305,3 +305,11 @@ its own meter, accents, subdivision and gap click, and play/rest times.
 4. Panic restarts the click cleanly from bar 1.
 5. Type notes for the current song; they are saved with that preset.
 6. Prefer fewer controls? Settings → Look → Layout → Clean.
+
+### J13 — Play along with a groove
+1. In the Groove panel, pick a groove (e.g. Rock eighths). It turns on, sets its
+   meter and swing, and plays one bar if stopped.
+2. Press Play: the count-in is click only; the groove starts on bar 1.
+3. Tap steps to edit while it plays; changes are heard on the next pass.
+4. Balance click and drums in the Mixer (volume, pan, mute).
+5. Save the song (preset): the groove and mix come back with it.

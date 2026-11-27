@@ -23,3 +23,16 @@ The exact file-to-level mapping is in `manifest.json` and `kits.json`.
 To rebuild from a fresh copy of VCSL: put the source files in
 `<raw>/<kit dir>/` as listed in `manifest.json`, then run
 `node web/tools/build-samples.mjs <raw>`.
+
+## Groove voices (`drums/`, listed in `drums.json`)
+
+| Voice | VCSL source folder | Files used |
+|---|---|---|
+| Kick | Membranophones/Struck Membranophones/Bass Drum 3 - Legacy | bdrum_muted_fff_rr1, _ff_rr1, _mf_rr1, _mp_rr1/2 (muted concert bass drum; VCSL has no drum-kit kick) |
+| Snare | Membranophones/Struck Membranophones/Snare Drum, Modern 1 | Snare2_HitSN_v9, v7 (rr1/2), v3 (rr1/2) |
+| Hi-hat (closed) | Idiophones/Struck Idiophones/Hi-Hat Cymbal | HiHat_HitC_v4, v3, v1 (rr1/2) |
+| Open hat | Idiophones/Struck Idiophones/Hi-Hat Cymbal | HiHat_HitO_rr1/2 |
+| Shaker | Idiophones/Struck Idiophones/Shaker, Small | Mid_ShakerHighFaster_Up/Down rr1/2 |
+| Tambourine | Idiophones/Struck Idiophones/Tambourine 1 | Tamb1_Hit_v1/v2, Tamb1_Shake_rr1/2 |
+
+Each voice has ghost, normal and accent takes, processed the same way as the click kits.

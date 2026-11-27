@@ -272,3 +272,19 @@ as base64 by `build.mjs` so it works offline (~96 KB). Monospace stays only for
 logs and test reports. Every key uses one gradient recipe (lit top edge, sheen on
 the upper half, solid base that compresses on press), coloured per role: green
 play, amber pause, red stop, tan choices, dark keys, green-glow "on" state.
+
+## D-033 — Grooves: drum layers on the click's clock, per-song mixer
+A groove is a short pattern on a 16th grid (two steps per eighth in /8 meters),
+lanes kick, snare, hi-hat, open hat, shaker, tambourine, each step rest / ghost /
+hit / accent. `PlaybackPlan.grooveEventsIn` computes hit times from the same
+segments as the clicks, so grooves follow tempo changes (including mid-bar), meter
+changes, gap bars (silent) and swing, and stay out of the count-in. Swing warps every
+position inside a pair of click steps the same way, so groove offbeats land exactly
+on swung clicks; with an unpaired click (e.g. quarters) the groove swings eighths.
+13 starter grooves (4/4, 3/4, 5/4, 6/8, 7/8, 12/8); picking one sets its meter and
+swing (at the bar line while playing). Edits apply from the next scheduled step;
+users can save, update and delete their own grooves. Mixer: click, kick, snare,
+hats, shaker, tambourine, each volume / pan / mute, through per-channel Web Audio
+buses. Groove choice, edits, on/off and mix are saved with each preset (song).
+Closed hat chokes a ringing open hat. Grooves are off in the Practice workspace.
+Samples: VCSL (CC0); the kick is a muted concert bass drum because VCSL has no kit kick.

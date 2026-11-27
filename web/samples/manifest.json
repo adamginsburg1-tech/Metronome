@@ -148,5 +148,122 @@
         ]
       }
     }
+  ],
+  "voices": [
+    {
+      "id": "kick",
+      "label": "Kick",
+      "dir": "kick",
+      "maxDur": 0.4,
+      "levels": {
+        "accent": [
+          "bdrum_muted_fff_rr1.wav",
+          "bdrum_muted_ff_rr1.wav"
+        ],
+        "normal": [
+          "bdrum_muted_mf_rr1.wav",
+          "bdrum_muted_ff_rr1.wav"
+        ],
+        "ghost": [
+          "bdrum_muted_mp_rr1.wav",
+          "bdrum_muted_mp_rr2.wav"
+        ]
+      }
+    },
+    {
+      "id": "snare",
+      "label": "Snare",
+      "dir": "snare",
+      "maxDur": 0.3,
+      "levels": {
+        "accent": [
+          "Snare2_HitSN_v9_rr1_Mid.wav"
+        ],
+        "normal": [
+          "Snare2_HitSN_v7_rr1_Mid.wav",
+          "Snare2_HitSN_v7_rr2_Mid.wav"
+        ],
+        "ghost": [
+          "Snare2_HitSN_v3_rr1_Mid.wav",
+          "Snare2_HitSN_v3_rr2_Mid.wav"
+        ]
+      }
+    },
+    {
+      "id": "hat",
+      "label": "Hi-hat",
+      "dir": "hat",
+      "maxDur": 0.15,
+      "levels": {
+        "accent": [
+          "HiHat_HitC_v4_rr1_Mid.wav",
+          "HiHat_HitC_v4_rr2_Mid.wav"
+        ],
+        "normal": [
+          "HiHat_HitC_v3_rr1_Mid.wav",
+          "HiHat_HitC_v3_rr2_Mid.wav"
+        ],
+        "ghost": [
+          "HiHat_HitC_v1_rr1_Mid.wav",
+          "HiHat_HitC_v1_rr2_Mid.wav"
+        ]
+      }
+    },
+    {
+      "id": "open",
+      "label": "Open hat",
+      "dir": "ohat",
+      "maxDur": 0.6,
+      "levels": {
+        "accent": [
+          "HiHat_HitO_rr2_Mid.wav"
+        ],
+        "normal": [
+          "HiHat_HitO_rr1_Mid.wav",
+          "HiHat_HitO_rr2_Mid.wav"
+        ],
+        "ghost": [
+          "HiHat_HitO_rr1_Mid.wav"
+        ]
+      }
+    },
+    {
+      "id": "shaker",
+      "label": "Shaker",
+      "dir": "shaker",
+      "maxDur": 0.18,
+      "levels": {
+        "accent": [
+          "Mid_ShakerHighFaster_Up_rr1.wav",
+          "Mid_ShakerHighFaster_Up_rr2.wav"
+        ],
+        "normal": [
+          "Mid_ShakerHighFaster_Up_rr2.wav",
+          "Mid_ShakerHighFaster_Down_rr1.wav"
+        ],
+        "ghost": [
+          "Mid_ShakerHighFaster_Down_rr1.wav",
+          "Mid_ShakerHighFaster_Down_rr2.wav"
+        ]
+      }
+    },
+    {
+      "id": "tamb",
+      "label": "Tambourine",
+      "dir": "tamb",
+      "maxDur": 0.35,
+      "levels": {
+        "accent": [
+          "Tamb1_Hit_v2_rr1_Mid.wav"
+        ],
+        "normal": [
+          "Tamb1_Shake_rr1_Mid.wav",
+          "Tamb1_Shake_rr2_Mid.wav"
+        ],
+        "ghost": [
+          "Tamb1_Hit_v1_rr1_Mid.wav"
+        ]
+      }
+    }
   ]
 }

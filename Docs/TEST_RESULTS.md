@@ -312,3 +312,14 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
 - **Regression scripts** (presets, gaps, swing, immediate changes, settings sheet,
   samples, keypad, HIG checks, practice, routines) pass in the Clean layout; no errors.
 - **Node:** 37 tests pass. **Swift:** 41 tests pass (core unchanged).
+
+## Grooves (D-033)
+- **Node:** 42 tests pass. Five new groove tests: 16th grid at tempo, windowed
+  scheduling never repeats or skips (swung, with count-in, odd window sizes),
+  count-in silent, groove offbeats equal swung click times, tempo change mid-bar and
+  gap bars, eighth swing over a quarter-note click.
+- **Browser (iPad landscape), real scheduled start times:** at 120 BPM drum hits
+  and clicks share the 0.25 s eighth grid; playhead follows; editing a step while
+  playing marks the groove edited; picking Six-eight switches the meter to 6/8 at the
+  bar line; kick mute, groove choice and on/off survive reload; groove panel shows in
+  Clean too; no overflow at phone width; all regression scripts pass; no errors.

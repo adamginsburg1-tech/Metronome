@@ -23,7 +23,7 @@
     <nav class="rail" aria-label="Workspaces">
       <button type="button" id="rail-click" aria-current="page">Click</button>
       <button type="button" id="rail-practice">Practice</button>
-      <button type="button" disabled>Groove <small>Later</small></button>
+      <button type="button" id="rail-groove">Groove</button>
       <button type="button" disabled>Library <small>Later</small></button>
     </nav>
 
@@ -117,6 +117,35 @@
     <section class="panel cc-only cc-notes" id="cc-notes-panel" aria-label="Song notes">
       <div class="cc-head-row"><h2 class="cc-head">Song notes</h2><span class="cc-label" id="cc-notes-state">Per song · saved automatically</span></div>
       <textarea class="cc-notes-text" id="cc-notes" placeholder="Notes for this song: form, cues, endings, who counts it off…"></textarea>
+    </section>
+
+    <section class="panel groove" id="groove-panel" aria-label="Groove" data-on="false">
+      <div class="cc-head-row">
+        <h2 class="cc-head">Groove <span class="groove-edited" id="groove-edited" hidden>· edited</span></h2>
+        <div class="groove-head-actions">
+          <button type="button" class="btn small" id="groove-preview">Hear one bar</button>
+          <button type="button" class="cc-toggle groove-power" id="groove-on" aria-pressed="false">Groove off</button>
+        </div>
+      </div>
+      <div class="chips groove-list" id="groove-chips" role="group" aria-label="Grooves"></div>
+      <p class="hint" id="groove-note"></p>
+      <div class="groove-grid" id="groove-grid"></div>
+      <p class="hint">Tap a step: hit, accent, ghost, rest. Tap a name to hear it. The groove follows tempo, meter changes, swing and gap bars, and stays out of the count-in.</p>
+      <div class="groove-actions">
+        <button type="button" class="btn small" id="groove-clear">Clear</button>
+        <button type="button" class="btn small" id="groove-revert">Revert</button>
+        <button type="button" class="btn small" id="groove-update" hidden>Update groove</button>
+        <button type="button" class="btn small" id="groove-save">Save as new groove</button>
+        <button type="button" class="btn small danger" id="groove-delete" hidden>Delete groove</button>
+        <form class="groove-name-form" id="groove-name-form" hidden>
+          <input type="text" id="groove-name" maxlength="40" aria-label="Groove name" autocomplete="off">
+          <button type="submit" class="btn small">Save</button>
+          <button type="button" class="btn small" id="groove-name-cancel">Cancel</button>
+        </form>
+      </div>
+      <div class="cc-head-row mixer-head"><h3 class="cc-head">Mixer</h3><button type="button" class="btn small" id="mixer-reset">Reset mix</button></div>
+      <div class="mixer" id="mixer"></div>
+      <p class="hint">Saved with the song (preset). Double-tap a pan slider to centre it.</p>
     </section>
 
     <section class="panel practice" id="practice-view" aria-label="Practice">

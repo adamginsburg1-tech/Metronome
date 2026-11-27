@@ -116,7 +116,8 @@
         accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
         workspace: settings.workspace, routines, routineId, routineWorking: routineCfg, sessions, presets, presetId: settings.presetId,
-        gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, swing: settings.swing, layout: settings.layout, tempoLock: settings.tempoLock, presetNotes, answers, notes: $("notes").value,
+        gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, swing: settings.swing, layout: settings.layout, tempoLock: settings.tempoLock, presetNotes,
+        grooveOn: settings.grooveOn, grooveId: settings.grooveId, grooveLanes: settings.grooveLanes, mix: settings.mix, userGrooves, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
@@ -197,7 +198,7 @@
   // Notes per preset ("song"), kept apart from the preset values so editing them
   // never marks a preset as edited.
   const presetNotes = stored.presetNotes && typeof stored.presetNotes === "object" ? stored.presetNotes : {};
-  const PRESET_FIELDS = ["bpm", "meterId", "accents", "subdivision", "swing", "sound", "countInMode", "countInBars", "gapMode", "gapPlay", "gapMute", "gapPercent", "gapSeed"];
+  const PRESET_FIELDS = ["bpm", "meterId", "accents", "subdivision", "swing", "sound", "countInMode", "countInBars", "gapMode", "gapPlay", "gapMute", "gapPercent", "gapSeed", "grooveOn", "grooveId", "grooveLanes", "mix"];
   const presets = Array.isArray(stored.presets) ? stored.presets : [
     { id: "p-quick", name: "Quick Click", bpm: 120, meterId: "4/4", accents: null, subdivision: 1, sound: "wood", countInMode: "every", countInBars: 1 },
     { id: "p-pedal", name: "Double pedal eighths", bpm: 130, meterId: "4/4", accents: null, subdivision: 2, sound: "wood", countInMode: "every", countInBars: 1 },
@@ -214,6 +215,7 @@
     soundingPattern: null, catchingUp: false,
     worker: null, fallbackTimer: null, lastTick: 0,
     wakeLock: null, runStartPerf: 0, hiddenAt: null, missedAtHide: 0,
+    bus: null, drums: null, grooveVisual: [], openHat: null,
     clockRef: null, currentUnit: -1, currentRole: null, currentBar: null, countInBars: 0,
   };
   const stats = freshStats();
@@ -242,7 +244,7 @@
     { id: 50, label: "Straight" }, { id: 55, label: "Light", note: "55%" }, { id: 60, label: "Medium", note: "60%" },
     { id: 67, label: "Triplet", note: "67%" }, { id: 72, label: "Heavy", note: "72%" },
   ];
-  const swingApplies = () => T.SWING_SUBDIVISIONS.includes(settings.subdivision);
+  const swingApplies = () => T.SWING_SUBDIVISIONS.includes(settings.subdivision) || settings.grooveOn === true;
   function currentTempo() { return T.makeTempo(settings.bpm, currentMeter().defaultBeatUnit); }
   function glyphFor(beatUnit) {
     if (Math.abs(beatUnit - 3 / 8) < 1e-9) return "♩.";
@@ -349,7 +351,10 @@
     // Subdivisions get their own volume, adjustable live.
     eng.subGain = eng.ctx.createGain();
     eng.subGain.gain.value = Math.pow(settings.subVolume / 100, 2);
-    eng.subGain.connect(eng.master);
+    eng.bus = {};
+    for (const ch of CHANNELS) eng.bus[ch.id] = makeBus();
+    eng.subGain.connect(eng.bus.click.in);
+    applyMix(true);
     eng.buffers = {};
     kitBuffers(settings.sound);
     eng.ctx.addEventListener("statechange", onAudioState);
@@ -495,6 +500,8 @@
     for (const src of eng.sources) { try { src.stop(); } catch { /* already stopped */ } }
     eng.sources.clear();
     eng.visual = [];
+    eng.openHat = null;
+    if (typeof clearGrooveStep === "function" && eng.grooveVisual) clearGrooveStep();
     eng.pending = null;
     eng.queued = null;
     eng.nowNote = null;
@@ -629,7 +636,7 @@
       }
       const src = ctx.createBufferSource();
       src.buffer = pickTake(sounds, e.role === "countIn" ? "countIn" : e.level);
-      src.connect(e.role !== "countIn" && e.level === L.sub ? eng.subGain : eng.master);
+      src.connect(e.role !== "countIn" && e.level === L.sub ? eng.subGain : eng.bus.click.in);
       src.start(e.time);
       eng.sources.add(src);
       src.onended = () => eng.sources.delete(src);
@@ -638,6 +645,7 @@
       stats.scheduled++;
       stats.minHeadroom = Math.min(stats.minHeadroom, e.time - now);
     }
+    if (grooveSounds()) scheduleGroove(from, to);
     eng.scheduledUntil = to;
   }
 
@@ -921,6 +929,9 @@
         const t = `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, "0")}`;
         if ($("cc-length").textContent !== t) $("cc-length").textContent = t;
       }
+      let step = null;
+      while (eng.grooveVisual.length && eng.grooveVisual[0].time <= t) step = eng.grooveVisual.shift();
+      if (step) showGrooveStep(step.step);
       if (rt.active && rt.current) $("pos-bar").textContent = `Stage ${rt.current.stage + 1}/${rt.stages.length}`;
       else $("pos-bar").textContent = eng.currentBar === null ? (eng.barOffset ? `Bar ${eng.barOffset + 1}` : "Bar –") : eng.currentBar < 0 ? `Count-in ${eng.currentBar + eng.countInBars + 1}` : `Bar ${eng.currentBar + eng.barOffset + 1}`;
     }
@@ -1058,7 +1069,7 @@
     $("swing-field").hidden = !applies;
     $("swing-note-sheet").textContent = applies
       ? "Moves the second note of each pair later; beats stay exact. 67% is triplet swing."
-      : "Swing works with ÷2 (eighths) and ÷4 (sixteenths). Pick one under Subdivision.";
+      : "Swing works with ÷2 (eighths) and ÷4 (sixteenths), or with a groove playing. Pick one under Subdivision.";
     for (const b of $("swing-chips-sheet").querySelectorAll("button")) b.disabled = !applies;
     chip("countin-chips", COUNT_IN_MODES, (c) => c.id === settings.countInMode, (c) => { settings.countInMode = c.id; });
     chip("countin-bars-chips", COUNT_IN_BARS.map((n) => ({ id: n, label: `${n} bar${n > 1 ? "s" : ""}` })), (c) => c.id === settings.countInBars, (c) => { settings.countInBars = c.id; });
@@ -1073,6 +1084,7 @@
       log(`Layout: ${l.label}`);
     });
     if (document.getElementById("cc-play")) renderCommandKeys();
+    renderGroove();
     chip("concept-chips", CONCEPTS, (c) => c.id === settings.concept, (c) => {
       if (c.id === settings.concept) return;
       settings.concept = c.id;
@@ -2023,10 +2035,10 @@
 
   // ---------- presets ----------
   const presetUI = { editing: false, armedDelete: null, renaming: null, lastFocus: null, anchor: null };
-  const snapshot = () => Object.fromEntries(PRESET_FIELDS.map((k) => [k, settings[k] ?? null]));
+  const snapshot = () => Object.fromEntries(PRESET_FIELDS.map((k) => [k, settings[k] === undefined || settings[k] === null ? null : JSON.parse(JSON.stringify(settings[k]))]));
   // Presets saved before a field existed get its default (gaps off); the random
   // pattern number only matters when the preset has one.
-  const PRESET_DEFAULTS = { gapMode: "off", gapPlay: 2, gapMute: 2, gapPercent: 30, swing: 50 };
+  const PRESET_DEFAULTS = { gapMode: "off", gapPlay: 2, gapMute: 2, gapPercent: 30, swing: 50, grooveOn: false };
   const presetValue = (p, k) => (p[k] !== undefined ? p[k] : PRESET_DEFAULTS[k]);
   const samePreset = (p) => PRESET_FIELDS.every((k) => presetValue(p, k) === undefined || JSON.stringify(presetValue(p, k) ?? null) === JSON.stringify(settings[k] ?? null));
   const currentPreset = () => presets.find((p) => p.id === settings.presetId) || null;
@@ -2208,8 +2220,9 @@
   function loadPreset(p) {
     for (const k of PRESET_FIELDS) {
       const v = presetValue(p, k);
-      if (v !== undefined) settings[k] = Array.isArray(v) ? v.slice() : v;
+      if (v !== undefined) settings[k] = v && typeof v === "object" ? JSON.parse(JSON.stringify(v)) : v;
     }
+    if (!settings.mix) settings.mix = defaultMix();
     settings.presetId = p.id;
     log(`Preset loaded: ${p.name}`);
     renderTempo();
@@ -2221,6 +2234,8 @@
     renderTempoNote();
     saveStore();
     renderPresets();
+    renderGroove();
+    applyMix();
     closePresets();
   }
   function openPresetName(mode, p) {
@@ -2450,7 +2465,7 @@
       for (const [lv, offset] of steps) {
         const src = eng.ctx.createBufferSource();
         src.buffer = pickTake(kit, lv);
-        src.connect(lv === L.sub ? eng.subGain : eng.master);
+        src.connect(lv === L.sub ? eng.subGain : eng.bus.click.in);
         src.start(t0 + beat * 1.5 + offset);
         previewSources.push(src);
       }
@@ -2465,6 +2480,402 @@
     if (eng.subGain) eng.subGain.gain.setTargetAtTime(Math.pow(settings.subVolume / 100, 2), eng.ctx.currentTime, 0.015);
     saveStore();
   });
+
+
+  // ---------- grooves (plan §08, M3) ----------
+  // A groove is a short drum pattern on a 16th grid (two steps per eighth in /8
+  // meters). It plays with the click on the same clock and follows its tempo,
+  // meter changes, swing and gap bars (timing.js grooveEventsIn); it is silent
+  // in the count-in. Lanes are strings: "." rest, "g" ghost, "x" hit, "X" accent.
+  // Recorded voices: web/samples/drums (VCSL, CC0). See Docs/DESIGN.md › Grooves.
+  function makeBus() {
+    const ctx = eng.ctx;
+    const gain = ctx.createGain();
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    if (pan) { gain.connect(pan); pan.connect(eng.master); } else gain.connect(eng.master);
+    return { in: gain, gain, pan };
+  }
+  const mixGain = (m) => (m.m ? 0 : Math.pow(m.v / 80, 2));
+  function applyMix(instant = false) {
+    if (!eng.bus) return;
+    const now = eng.ctx.currentTime;
+    for (const ch of CHANNELS) {
+      const m = settings.mix[ch.id], bus = eng.bus[ch.id];
+      if (instant) { bus.gain.gain.value = mixGain(m); if (bus.pan) bus.pan.pan.value = m.p / 50; continue; }
+      bus.gain.gain.setTargetAtTime(mixGain(m), now, 0.015);
+      if (bus.pan) bus.pan.pan.setTargetAtTime(m.p / 50, now, 0.015);
+    }
+  }
+
+  const DRUM_LEVEL_GAIN = { 1: 0.45, 2: 1, 3: 1.35 };
+  const DRUM_LEVELS = { 1: "ghost", 2: "normal", 3: "accent" };
+  function drumBuffers() {
+    if (eng.drums) return eng.drums;
+    const ctx = eng.ctx;
+    eng.drums = {};
+    for (const v of DRUM_VOICES) {
+      eng.drums[v.id] = {};
+      for (const [n, name] of Object.entries(DRUM_LEVELS)) {
+        eng.drums[v.id][n] = (v.levels[name] || v.levels.normal).map((b64) => {
+          const w = SND.decodeWav(SND.fromBase64(b64));
+          const b = ctx.createBuffer(1, w.data.length, w.sr);
+          const out = b.getChannelData(0), g = DRUM_LEVEL_GAIN[n];
+          for (let i = 0; i < w.data.length; i++) out[i] = w.data[i] * g;
+          return b;
+        });
+      }
+    }
+    return eng.drums;
+  }
+  const drumTurns = {};
+  function drumTake(lane, level) {
+    const takes = drumBuffers()[lane][level];
+    const key = lane + level;
+    drumTurns[key] = ((drumTurns[key] || 0) + 1) % takes.length;
+    return takes[drumTurns[key]];
+  }
+  /** One drum hit. Closed hat (or the next open hat) chokes a ringing open hat. */
+  function playDrum(lane, level, time) {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = drumTake(lane, level);
+    let dest = eng.bus[LANE_BUS[lane]].in;
+    if ((lane === "hat" || lane === "open") && eng.openHat && time > eng.openHat.time) {
+      eng.openHat.gain.gain.setTargetAtTime(0, time, 0.012);
+      eng.openHat = null;
+    }
+    if (lane === "open") {
+      const g = ctx.createGain();
+      g.connect(dest);
+      dest = g;
+      eng.openHat = { gain: g, time };
+    }
+    src.connect(dest);
+    src.start(time);
+    eng.sources.add(src);
+    src.onended = () => eng.sources.delete(src);
+  }
+
+  const grooveSounds = () => settings.grooveOn && settings.workspace !== "practice" && !rt.active && DRUM_VOICES.length > 0;
+  function scheduleGroove(from, to) {
+    for (const h of eng.plan.grooveEventsIn(from, to, compiledGroove())) {
+      if (h.lane === "_step") { eng.grooveVisual.push({ time: h.time, step: h.step }); continue; }
+      playDrum(h.lane, h.level, h.time);
+    }
+  }
+
+  const LANES = [
+    { id: "kick", label: "Kick" }, { id: "snare", label: "Snare" }, { id: "hat", label: "Hi-hat" },
+    { id: "open", label: "Open hat" }, { id: "shaker", label: "Shaker" }, { id: "tamb", label: "Tambourine" },
+  ];
+  const LANE_BUS = { kick: "kick", snare: "snare", hat: "hat", open: "hat", shaker: "shaker", tamb: "tamb" };
+  const STARTER_GROOVES = [
+    { id: "g-rock8", name: "Rock eighths", meterId: "4/4", note: "Backbeat on 2 and 4, eighth-note hat.",
+      lanes: { kick: "X.......X.x.....", snare: "....X.......X...", hat: "X.x.x.x.X.x.x.x." } },
+    { id: "g-rock16", name: "Rock sixteenths", meterId: "4/4", note: "Sixteenth hat with soft in-betweens.",
+      lanes: { kick: "X.....x.X.x.....", snare: "....X.......X...", hat: "XgxgXgxgXgxgXgxg" } },
+    { id: "g-half", name: "Half-time", meterId: "4/4", note: "Snare on 3 only.",
+      lanes: { kick: "X.........X.....", snare: "........X.......", hat: "x.x.x.x.x.x.x.x." } },
+    { id: "g-funk", name: "Funk sixteenths", meterId: "4/4", note: "Syncopated kick, ghost notes on snare.",
+      lanes: { kick: "X..x..x...X..x..", snare: "....X..g.g..X..g", hat: "xgxgxgxgxgxgxgxg" } },
+    { id: "g-four", name: "Four on the floor", meterId: "4/4", note: "Kick every beat, open hat on the offbeats.",
+      lanes: { kick: "X...X...X...X...", snare: "....x.......x...", open: "..x...x...x...x.", shaker: "xgxgxgxgxgxgxgxg" } },
+    { id: "g-shuffle", name: "Shuffle", meterId: "4/4", swing: 67, note: "Swung eighths (sets swing to triplet).",
+      lanes: { kick: "X.......X.x.....", snare: "....X.......X...", hat: "X.x.X.x.X.x.X.x." } },
+    { id: "g-bossa", name: "Bossa feel", meterId: "4/4", note: "Kick in pairs, cross-stick pattern, shaker.",
+      lanes: { kick: "X..xX..xX..xX..x", snare: "g..g..g...g..g..", shaker: "xgxgxgxgxgxgxgxg" } },
+    { id: "g-hand", name: "Shaker and tambourine", meterId: "4/4", note: "Hand percussion only, no kit.",
+      lanes: { shaker: "XgxgXgxgXgxgXgxg", tamb: "....X.......X..." } },
+    { id: "g-waltz", name: "Waltz", meterId: "3/4", note: "Kick on 1, snare on 2 and 3.",
+      lanes: { kick: "X...........", snare: "....x...x...", hat: "x.x.x.x.x.x." } },
+    { id: "g-54", name: "Five (3+2)", meterId: "5/4", note: "Kick on 1 and 4, snare on 3 and 5.",
+      lanes: { kick: "X...........X.......", snare: "........X.......X...", hat: "x.x.x.x.x.x.x.x.x.x." } },
+    { id: "g-68", name: "Six-eight", meterId: "6/8", note: "Two big beats, eighth-note hat.",
+      lanes: { kick: "X.........x.", snare: "......X.....", hat: "X.x.x.X.x.x." } },
+    { id: "g-78", name: "Seven (2+2+3)", meterId: "7/8a", note: "Kick on the groups, snare on the second.",
+      lanes: { kick: "X.......X.....", snare: "....X.....x...", hat: "X.x.X.x.X.x.x." } },
+    { id: "g-128", name: "12/8 blues", meterId: "12/8", note: "Slow four, three eighths per beat.",
+      lanes: { kick: "X.........x.X...........", snare: "......X...........X.....", hat: "X.x.x.X.x.x.X.x.x.X.x.x." } },
+  ];
+  const CHANNELS = [
+    { id: "click", label: "Click" }, { id: "kick", label: "Kick" }, { id: "snare", label: "Snare" },
+    { id: "hat", label: "Hats" }, { id: "shaker", label: "Shaker" }, { id: "tamb", label: "Tamb" },
+  ];
+  const MIX_DEFAULTS = {
+    click: { v: 80, p: 0, m: false }, kick: { v: 80, p: 0, m: false }, snare: { v: 72, p: 0, m: false },
+    hat: { v: 58, p: 15, m: false }, shaker: { v: 52, p: -30, m: false }, tamb: { v: 52, p: 30, m: false },
+  };
+  const defaultMix = () => JSON.parse(JSON.stringify(MIX_DEFAULTS));
+  function cleanMix(m) {
+    const out = defaultMix();
+    if (m && typeof m === "object") for (const ch of CHANNELS) {
+      const x = m[ch.id];
+      if (!x) continue;
+      if (Number.isFinite(x.v)) out[ch.id].v = Math.min(100, Math.max(0, Math.round(x.v)));
+      if (Number.isFinite(x.p)) out[ch.id].p = Math.min(50, Math.max(-50, Math.round(x.p)));
+      out[ch.id].m = x.m === true;
+    }
+    return out;
+  }
+  const DRUM_VOICES = window.POCKET_DRUM_VOICES || [];
+  const userGrooves = Array.isArray(stored.userGrooves) ? stored.userGrooves.filter((g) => g && g.id && g.lanes && METERS.some((m) => m.id === g.meterId)) : [];
+  const allGrooves = () => STARTER_GROOVES.concat(userGrooves);
+  settings.grooveOn = stored.grooveOn === true;
+  settings.grooveId = allGrooves().some((g) => g.id === stored.grooveId) ? stored.grooveId : STARTER_GROOVES[0].id;
+  settings.grooveLanes = stored.grooveLanes && typeof stored.grooveLanes === "object" ? stored.grooveLanes : null;
+  settings.mix = cleanMix(stored.mix);
+
+  const grooveDef = () => allGrooves().find((g) => g.id === settings.grooveId) || STARTER_GROOVES[0];
+  const grooveMeter = (g) => METERS.find((m) => m.id === g.meterId) || METERS[0];
+  const grooveStepsPerUnit = (g) => (grooveMeter(g).den <= 4 ? 4 : 2);
+  const grooveSteps = (g) => grooveMeter(g).num * grooveStepsPerUnit(g);
+  const LEVEL_CHARS = ".gxX";
+  /** Lane string → exactly `n` steps (pads with rests, cuts extra). */
+  const fitLane = (str, n) => (String(str || "").replace(/[^.gxX]/g, ".") + ".".repeat(n)).slice(0, n);
+  function workingLanes() {
+    const g = grooveDef(), n = grooveSteps(g), src = settings.grooveLanes || g.lanes;
+    return Object.fromEntries(LANES.map((l) => [l.id, fitLane(src[l.id], n)]));
+  }
+  const grooveEdited = () => !!settings.grooveLanes && JSON.stringify(workingLanes()) !== JSON.stringify(Object.fromEntries(LANES.map((l) => [l.id, fitLane(grooveDef().lanes[l.id], grooveSteps(grooveDef()))])));
+  let grooveCache = { key: null, value: null };
+  function compiledGroove() {
+    const g = grooveDef(), lanes = workingLanes(), key = g.id + JSON.stringify(lanes);
+    if (grooveCache.key !== key) {
+      const arrays = Object.fromEntries(Object.entries(lanes).map(([id, str]) => [id, [...str].map((c) => LEVEL_CHARS.indexOf(c))]));
+      arrays._step = Array(grooveSteps(g)).fill(1); // playhead only, never sounds
+      grooveCache = { key, value: { stepsPerUnit: grooveStepsPerUnit(g), lanes: arrays } };
+    }
+    return grooveCache.value;
+  }
+
+  function selectGroove(g) {
+    settings.grooveId = g.id;
+    settings.grooveLanes = null;
+    let changed = false;
+    if (g.meterId !== settings.meterId) {
+      settings.meterId = g.meterId;
+      settings.accents = null;
+      changed = true;
+    }
+    const swing = g.swing || 50;
+    if (swing !== settings.swing) { settings.swing = swing; changed = true; }
+    if (!settings.grooveOn) settings.grooveOn = true;
+    if (changed) { renderTempo(); queueChange("pattern"); renderBeats(); }
+    log(`Groove: ${g.name} (${grooveMeter(g).label || grooveMeter(g).id})`);
+    if (!isRunning()) previewGroove();
+  }
+
+  let grooveCells = [], grooveShown = -1;
+  function showGrooveStep(step) {
+    if (step === grooveShown) return;
+    for (const c of grooveCells[grooveShown] || []) c.classList.remove("now");
+    for (const c of grooveCells[step] || []) c.classList.add("now");
+    grooveShown = step;
+  }
+  function clearGrooveStep() { showGrooveStep(-1); eng.grooveVisual = []; }
+
+  function renderGroove() {
+    if (!$("groove-panel")) return;
+    const on = settings.grooveOn === true;
+    const power = $("groove-on");
+    power.setAttribute("aria-pressed", String(on));
+    power.textContent = on ? "Groove on" : "Groove off";
+    $("groove-panel").dataset.on = String(on);
+    const g = grooveDef();
+    renderChips($("groove-chips"), allGrooves().map((x) => ({ ...x, label: x.name, note: grooveMeter(x).label || grooveMeter(x).id })), (x) => x.id === settings.grooveId, selectGroove);
+    const meter = grooveMeter(g);
+    const mismatch = meter.id !== settings.meterId;
+    $("groove-note").textContent = (g.note || "Your groove.") + (mismatch ? ` Written in ${meter.label || meter.id}; it repeats inside the current bar.` : "");
+    $("groove-edited").hidden = !grooveEdited();
+    $("groove-revert").disabled = !grooveEdited();
+    $("groove-delete").hidden = !userGrooves.some((x) => x.id === g.id);
+    $("groove-update").hidden = !userGrooves.some((x) => x.id === g.id);
+    $("groove-update").disabled = !grooveEdited();
+    renderGrooveGrid();
+    renderMixer();
+  }
+
+  function renderGrooveGrid() {
+    const g = grooveDef(), lanes = workingLanes(), n = grooveSteps(g), per = grooveStepsPerUnit(g);
+    const meter = grooveMeter(g);
+    const beatEvery = meter.den >= 8 && meter.num % 3 === 0 && meter.num > 3 ? per * 3 : per;
+    const grid = $("groove-grid");
+    grid.textContent = "";
+    grid.style.setProperty("--steps", n);
+    grooveCells = Array.from({ length: n }, () => []);
+    grooveShown = -1;
+    const head = document.createElement("div");
+    head.className = "groove-row groove-count";
+    head.setAttribute("aria-hidden", "true");
+    head.append(document.createElement("span"));
+    for (let j = 0; j < n; j++) {
+      const s = document.createElement("span");
+      s.textContent = j % beatEvery === 0 ? String(j / beatEvery + 1) : j % per === 0 ? "·" : "";
+      grooveCells[j].push(s);
+      head.append(s);
+    }
+    grid.append(head);
+    for (const lane of LANES) {
+      const row = document.createElement("div");
+      row.className = "groove-row";
+      row.setAttribute("role", "group");
+      row.setAttribute("aria-label", lane.label);
+      const name = document.createElement("button");
+      name.type = "button";
+      name.className = "groove-lane";
+      name.textContent = lane.label;
+      name.setAttribute("aria-label", `Hear ${lane.label}`);
+      name.addEventListener("click", () => previewHit(lane.id, 3));
+      row.append(name);
+      [...lanes[lane.id]].forEach((c, j) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "groove-cell" + (j % beatEvery === 0 ? " g-beat" : j % per === 0 ? " g-unit" : "");
+        const lv = LEVEL_CHARS.indexOf(c);
+        b.dataset.level = String(lv);
+        b.setAttribute("aria-label", `${lane.label} step ${j + 1}: ${["rest", "ghost", "hit", "accent"][lv]}`);
+        b.addEventListener("click", () => cycleCell(lane.id, j));
+        grooveCells[j].push(b);
+        row.append(b);
+      });
+      grid.append(row);
+    }
+  }
+  /** Tap a step: rest → hit → accent → ghost → rest. Plays from the next scheduled step. */
+  function cycleCell(laneId, j) {
+    const lanes = workingLanes();
+    const order = ".xXg";
+    const next = order[(order.indexOf(lanes[laneId][j]) + 1) % order.length];
+    lanes[laneId] = lanes[laneId].slice(0, j) + next + lanes[laneId].slice(j + 1);
+    settings.grooveLanes = lanes;
+    if (next !== "." && !isRunning()) previewHit(laneId, LEVEL_CHARS.indexOf(next));
+    saveStore();
+    renderGroove();
+  }
+
+  let previewDrums = [];
+  async function previewHit(lane, level) {
+    if (isRunning()) return;
+    try {
+      ensureAudio();
+      if (eng.ctx.state !== "running") await eng.ctx.resume();
+      playDrum(lane, level, eng.ctx.currentTime + 0.03);
+    } catch (e) { log(`Preview failed: ${e.message}`, "warn"); }
+  }
+  /** One bar of the groove at the current tempo, without the click. */
+  async function previewGroove() {
+    try {
+      ensureAudio();
+      if (eng.ctx.state !== "running") await eng.ctx.resume();
+      if (isRunning()) return;
+      for (const s of previewDrums) { try { s.stop(); } catch { /* done */ } }
+      const t0 = eng.ctx.currentTime + 0.05;
+      const plan = T.PlaybackPlan.click({ pattern: currentPattern(), tempo: currentTempo(), startTime: t0 });
+      const end = plan.startTimeOfBar(1);
+      const before = new Set(eng.sources);
+      for (const h of plan.grooveEventsIn(t0, end, compiledGroove())) if (h.lane !== "_step") playDrum(h.lane, h.level, h.time);
+      previewDrums = [...eng.sources].filter((s) => !before.has(s));
+    } catch (e) { log(`Preview failed: ${e.message}`, "warn"); }
+  }
+
+  function renderMixer() {
+    const el = $("mixer");
+    if (el.dataset.built !== "1") {
+      el.textContent = "";
+      for (const ch of CHANNELS) {
+        const strip = document.createElement("div");
+        strip.className = "strip";
+        strip.dataset.ch = ch.id;
+        strip.innerHTML = `<span class="strip-name"></span>
+          <button type="button" class="cc-toggle strip-mute" aria-pressed="false">Mute</button>
+          <label class="strip-row"><span class="cc-label">Vol</span><input type="range" min="0" max="100" step="1" class="strip-vol"><output class="strip-out"></output></label>
+          <label class="strip-row"><span class="cc-label">Pan</span><input type="range" min="-50" max="50" step="5" class="strip-pan"><output class="strip-pan-out"></output></label>`;
+        strip.querySelector(".strip-name").textContent = ch.label;
+        strip.querySelector(".strip-mute").setAttribute("aria-label", `Mute ${ch.label}`);
+        strip.querySelector(".strip-vol").setAttribute("aria-label", `${ch.label} volume`);
+        strip.querySelector(".strip-pan").setAttribute("aria-label", `${ch.label} pan`);
+        const update = (patch) => {
+          settings.mix = { ...settings.mix, [ch.id]: { ...settings.mix[ch.id], ...patch } };
+          applyMix();
+          renderMixer();
+          saveStore();
+        };
+        strip.querySelector(".strip-mute").addEventListener("click", () => update({ m: !settings.mix[ch.id].m }));
+        strip.querySelector(".strip-vol").addEventListener("input", (e) => update({ v: Number(e.target.value) }));
+        strip.querySelector(".strip-pan").addEventListener("input", (e) => update({ p: Number(e.target.value) }));
+        strip.querySelector(".strip-pan").addEventListener("dblclick", () => update({ p: 0 }));
+        el.append(strip);
+      }
+      el.dataset.built = "1";
+    }
+    for (const strip of el.children) {
+      const m = settings.mix[strip.dataset.ch];
+      strip.dataset.muted = String(m.m);
+      strip.querySelector(".strip-mute").setAttribute("aria-pressed", String(m.m));
+      const vol = strip.querySelector(".strip-vol"), pan = strip.querySelector(".strip-pan");
+      if (Number(vol.value) !== m.v) vol.value = String(m.v);
+      if (Number(pan.value) !== m.p) pan.value = String(m.p);
+      strip.querySelector(".strip-out").textContent = String(m.v);
+      strip.querySelector(".strip-pan-out").textContent = m.p === 0 ? "C" : m.p < 0 ? `L${-m.p * 2}` : `R${m.p * 2}`;
+    }
+  }
+
+  $("groove-on").addEventListener("click", () => {
+    settings.grooveOn = !settings.grooveOn;
+    log(`Groove ${settings.grooveOn ? "on" : "off"}: ${grooveDef().name}`);
+    if (!settings.grooveOn) clearGrooveStep();
+    renderSetup();
+    saveStore();
+  });
+  $("groove-preview").addEventListener("click", () => { if (!isRunning()) previewGroove(); });
+  $("groove-clear").addEventListener("click", () => {
+    const n = grooveSteps(grooveDef());
+    settings.grooveLanes = Object.fromEntries(LANES.map((l) => [l.id, ".".repeat(n)]));
+    saveStore(); renderGroove();
+  });
+  $("groove-revert").addEventListener("click", () => { settings.grooveLanes = null; saveStore(); renderGroove(); });
+  $("groove-update").addEventListener("click", () => {
+    const g = userGrooves.find((x) => x.id === settings.grooveId);
+    if (!g) return;
+    g.lanes = workingLanes();
+    settings.grooveLanes = null;
+    log(`Groove updated: ${g.name}`);
+    saveStore(); renderGroove();
+  });
+  $("groove-delete").addEventListener("click", () => {
+    const i = userGrooves.findIndex((x) => x.id === settings.grooveId);
+    if (i < 0) return;
+    const [g] = userGrooves.splice(i, 1);
+    settings.grooveId = STARTER_GROOVES[0].id;
+    settings.grooveLanes = null;
+    log(`Groove deleted: ${g.name}`);
+    saveStore(); renderGroove();
+  });
+  $("groove-save").addEventListener("click", () => {
+    $("groove-name-form").hidden = false;
+    $("groove-save").hidden = true;
+    const input = $("groove-name");
+    input.value = grooveEdited() ? `${grooveDef().name} (mine)` : `My groove ${userGrooves.length + 1}`;
+    input.focus(); input.select();
+  });
+  $("groove-name-cancel").addEventListener("click", () => { $("groove-name-form").hidden = true; $("groove-save").hidden = false; });
+  $("groove-name-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("groove-name").value.trim().slice(0, 40);
+    if (!name) return;
+    const base = grooveDef();
+    const g = { id: `ug-${Date.now().toString(36)}`, name, meterId: base.meterId, note: "Your groove.", lanes: workingLanes() };
+    if (base.swing) g.swing = base.swing;
+    userGrooves.push(g);
+    settings.grooveId = g.id;
+    settings.grooveLanes = null;
+    $("groove-name-form").hidden = true;
+    $("groove-save").hidden = false;
+    log(`Groove saved: ${name}`);
+    saveStore(); renderGroove();
+  });
+  $("mixer-reset").addEventListener("click", () => { settings.mix = defaultMix(); applyMix(); renderMixer(); saveStore(); });
+  $("rail-groove").addEventListener("click", () => $("groove-panel").scrollIntoView({ behavior: "smooth", block: "start" }));
 
   // ---------- boot ----------
   buildDial();
