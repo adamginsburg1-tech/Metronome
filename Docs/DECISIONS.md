@@ -320,3 +320,14 @@ default kick is now synthesized at build time (sine body with pitch drop, 2nd
 harmonic, beater click), with two takes per level. Through a 150 Hz small-speaker
 filter it keeps as much level in its first 30 ms as the concert kick (0.52 vs 0.53
 of full RMS at accent). Groove panel › Kick sound: Kit (default) or Concert.
+
+## D-038 — PDF charts per song in the web test
+Command Center › Song notes panel gains a Chart tab: one PDF per song (preset),
+stored on the device in IndexedDB (falls back to memory if storage is blocked),
+deleted with the song. Rendered with pdf.js 3.11.174 legacy build (Apache-2.0,
+`web/src/vendor/pdfjs`), inlined as inert text and started only when a chart is
+first shown, with a main-thread fallback if worker threads are blocked. Fit page
+(default) or fit width; pages turn with buttons, a tap on the left/right third,
+←/→ or Page Up/Down (Bluetooth page-turner pedals). Remove needs two taps. The
+native app will use PDFKit + PencilKit as planned; this is the web stand-in.
+Page size: the build grows ~1.5 MB.

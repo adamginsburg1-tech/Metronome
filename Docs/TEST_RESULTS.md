@@ -360,3 +360,13 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
 - **Browser:** Kit is the default and the kick lane plays the synthesized buffers;
   choosing Concert switches to the recorded ones; the choice persists; groove, cc,
   presets, hig-check and swing timing checks pass with no errors.
+
+## PDF charts (D-038)
+- **Browser (iPad landscape):** pdf.js not loaded at start-up; a 3-page PDF added to
+  a song shows "Page 1 of 3"; Page ›, Page Down and a left-side tap turn pages; Next
+  is disabled on the last page; ↑ still changes tempo; another song shows "No chart";
+  returning shows the page left on; the chart survives reload (IndexedDB); a non-PDF
+  file is refused with a message; Remove needs two taps; no overflow at phone width.
+- **All regression scripts** pass with no errors; **Node** 46 tests pass.
+- Not verified: whether the claude.ai artifact host allows worker threads (the
+  main-thread fallback covers it) and real iPad page-turner pedals.

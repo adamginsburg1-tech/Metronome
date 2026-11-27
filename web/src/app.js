@@ -2117,6 +2117,7 @@
     if (document.activeElement !== notes) notes.value = cur ? presetNotes[cur.id] || "" : "";
     $("cc-notes-state").textContent = cur ? `${cur.name} · saved automatically` : "Save the setup as a song to keep notes";
     renderCommandKeys();
+    if (chart.tab === "chart") showChart();
   }
   let notesTimer = null;
   $("cc-notes").addEventListener("input", (e) => {
@@ -2205,6 +2206,7 @@
         del.addEventListener("click", () => {
           if (presetUI.armedDelete !== p.id) { presetUI.armedDelete = p.id; renderPresets(); return; }
           presets.splice(presets.indexOf(p), 1);
+          chartDelete(p.id);
           if (settings.presetId === p.id) settings.presetId = null;
           presetUI.armedDelete = null;
           log(`Preset deleted: ${p.name}`);
@@ -2486,6 +2488,225 @@
     saveStore();
   });
 
+
+
+  // ---------- charts (plan §08: a PDF chart per song) ----------
+  // Stored on this device in IndexedDB, keyed by the song's preset id. pdf.js
+  // (src/vendor/pdfjs) is started the first time a chart is shown. Pages turn with
+  // the buttons, a tap on the left or right third of the page, ←/→ or Page Up/Down
+  // (what most Bluetooth page-turner pedals send).
+  const chart = { tab: "notes", doc: null, docFor: null, page: 1, pages: 0, task: null, drawn: "", pageBySong: {}, fitWidth: false, removeArmed: null };
+  const memCharts = {};
+  let chartDb = null;
+  function openChartDb() {
+    if (chartDb) return chartDb;
+    chartDb = new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error("no IndexedDB")); return; }
+      const req = indexedDB.open("pocket-charts", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("charts");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    chartDb.catch(() => {});
+    return chartDb;
+  }
+  async function chartStore(mode, fn) {
+    const db = await openChartDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("charts", mode);
+      const req = fn(tx.objectStore("charts"));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function chartGet(id) {
+    try { return (await chartStore("readonly", (s) => s.get(id))) || null; } catch { return memCharts[id] || null; }
+  }
+  async function chartPut(id, rec) {
+    try { await chartStore("readwrite", (s) => s.put(rec, id)); return true; } catch { memCharts[id] = rec; return false; }
+  }
+  async function chartDelete(id) {
+    delete memCharts[id];
+    try { await chartStore("readwrite", (s) => s.delete(id)); } catch { /* nothing stored */ }
+    if (chart.docFor === id) closeChartDoc();
+  }
+  function closeChartDoc() {
+    if (chart.task) { try { chart.task.cancel(); } catch { /* done */ } chart.task = null; }
+    if (chart.doc) { try { chart.doc.destroy(); } catch { /* gone */ } }
+    chart.doc = null; chart.docFor = null; chart.pages = 0; chart.drawn = "";
+  }
+  function pdfLib() {
+    if (!window.pdfjsLib) {
+      const s = document.createElement("script");
+      s.textContent = $("pdfjs-src").textContent;
+      document.head.append(s);
+      if (!window.pdfjsLib) throw new Error("the PDF viewer did not load");
+      const worker = new Blob([$("pdfjs-worker-src").textContent], { type: "text/javascript" });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(worker);
+    }
+    return window.pdfjsLib;
+  }
+  async function openPdf(data) {
+    const lib = pdfLib();
+    try {
+      return await lib.getDocument({ data: new Uint8Array(data.slice(0)), isEvalSupported: false }).promise;
+    } catch (e) {
+      // Some hosts block worker threads; pdf.js then runs on this thread if its
+      // worker code is already loaded here.
+      if (window.pdfjsWorker) throw e;
+      const s = document.createElement("script");
+      s.textContent = $("pdfjs-worker-src").textContent;
+      document.head.append(s);
+      log(`Chart viewer: running without a worker (${e.message})`, "warn");
+      return lib.getDocument({ data: new Uint8Array(data.slice(0)), isEvalSupported: false }).promise;
+    }
+  }
+
+  function selectNotesTab(tab) {
+    chart.tab = tab;
+    $("cc-tab-notes").setAttribute("aria-selected", String(tab === "notes"));
+    $("cc-tab-chart").setAttribute("aria-selected", String(tab === "chart"));
+    $("cc-notes").hidden = tab !== "notes";
+    $("cc-chart").hidden = tab !== "chart";
+    $("cc-notes-panel").dataset.tab = tab;
+    if (tab === "chart") showChart();
+    else renderSetlist();
+  }
+  function chartMessage(text) {
+    $("chart-empty").textContent = text;
+    $("chart-empty").hidden = false;
+    $("chart-canvas").hidden = true;
+    $("chart-page").textContent = "–";
+    $("chart-prev").disabled = $("chart-next").disabled = true;
+  }
+  let chartShowing = 0;
+  async function showChart() {
+    const ticket = ++chartShowing;
+    const cur = currentPreset();
+    $("chart-add").disabled = !cur;
+    if (!cur) { closeChartDoc(); $("chart-remove").hidden = true; chartMessage("Save this setup as a song to add a chart."); $("cc-notes-state").textContent = "No song selected"; return; }
+    if (chart.docFor !== cur.id) {
+      closeChartDoc();
+      const rec = await chartGet(cur.id);
+      if (ticket !== chartShowing) return;
+      $("chart-add").textContent = rec ? "Replace chart" : "Add chart (PDF)";
+      $("chart-remove").hidden = !rec;
+      if (!rec) { chartMessage("No chart for this song yet. Add a PDF."); $("cc-notes-state").textContent = `${cur.name} · no chart`; return; }
+      chartMessage("Opening chart…");
+      try {
+        const doc = await openPdf(rec.data);
+        if (ticket !== chartShowing) { doc.destroy(); return; }
+        chart.doc = doc; chart.docFor = cur.id; chart.pages = doc.numPages; chart.name = rec.name;
+        chart.page = Math.min(chart.pageBySong[cur.id] || 1, chart.pages);
+      } catch (e) {
+        chartMessage(`This PDF could not be opened (${e.message}). Try exporting it again.`);
+        log(`Chart failed to open: ${e.message}`, "warn");
+        return;
+      }
+    }
+    $("cc-notes-state").textContent = `${cur.name} · ${chart.name}`;
+    await drawChartPage();
+  }
+  async function drawChartPage() {
+    if (!chart.doc) return;
+    const view = $("chart-view"), canvas = $("chart-canvas");
+    const key = `${chart.docFor}:${chart.page}:${view.clientWidth}x${view.clientHeight}:${chart.fitWidth}`;
+    $("chart-page").textContent = `Page ${chart.page} of ${chart.pages}`;
+    $("chart-prev").disabled = chart.page <= 1;
+    $("chart-next").disabled = chart.page >= chart.pages;
+    if (key === chart.drawn) return;
+    if (chart.task) { try { chart.task.cancel(); } catch { /* done */ } }
+    const page = await chart.doc.getPage(chart.page);
+    const base = page.getViewport({ scale: 1 });
+    const w = Math.max(100, view.clientWidth - 16), h = Math.max(100, view.clientHeight - 16);
+    const scale = chart.fitWidth ? w / base.width : Math.min(w / base.width, h / base.height);
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const vp = page.getViewport({ scale: scale * dpr });
+    canvas.width = Math.floor(vp.width);
+    canvas.height = Math.floor(vp.height);
+    canvas.style.width = `${Math.floor(vp.width / dpr)}px`;
+    canvas.style.height = `${Math.floor(vp.height / dpr)}px`;
+    chart.task = page.render({ canvasContext: canvas.getContext("2d"), viewport: vp });
+    try {
+      await chart.task.promise;
+      chart.drawn = key;
+      canvas.hidden = false;
+      $("chart-empty").hidden = true;
+      view.scrollTop = 0;
+    } catch (e) {
+      if (e && e.name !== "RenderingCancelledException") log(`Chart page failed: ${e.message}`, "warn");
+    } finally { chart.task = null; }
+  }
+  function turnChartPage(dir) {
+    if (!chart.doc) return;
+    const next = Math.min(chart.pages, Math.max(1, chart.page + dir));
+    if (next === chart.page) return;
+    chart.page = next;
+    chart.pageBySong[chart.docFor] = next;
+    drawChartPage();
+  }
+
+  $("cc-tab-notes").addEventListener("click", () => selectNotesTab("notes"));
+  $("cc-tab-chart").addEventListener("click", () => selectNotesTab("chart"));
+  for (const id of ["cc-tab-notes", "cc-tab-chart"]) {
+    $(id).addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      const other = id === "cc-tab-notes" ? "cc-tab-chart" : "cc-tab-notes";
+      $(other).focus(); $(other).click();
+    });
+  }
+  $("chart-prev").addEventListener("click", () => turnChartPage(-1));
+  $("chart-next").addEventListener("click", () => turnChartPage(1));
+  $("chart-fit").addEventListener("click", () => {
+    chart.fitWidth = !chart.fitWidth;
+    $("chart-fit").setAttribute("aria-pressed", String(chart.fitWidth));
+    drawChartPage();
+  });
+  $("chart-view").addEventListener("click", (e) => {
+    if (!chart.doc) return;
+    const r = $("chart-view").getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    if (x < 1 / 3) turnChartPage(-1);
+    else if (x > 2 / 3) turnChartPage(1);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (chart.tab !== "chart" || !chart.doc || settings.layout !== "dense" || keypad.open) return;
+    if (e.target.closest("input, textarea, select, [role=slider], [role=tab]") || !$("settings").hidden) return;
+    const dir = { PageDown: 1, PageUp: -1, ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (dir) { e.preventDefault(); turnChartPage(dir); }
+  });
+  $("chart-add").addEventListener("click", () => { if (currentPreset()) $("chart-file").click(); });
+  $("chart-file").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    const cur = currentPreset();
+    if (!file || !cur) return;
+    if (file.size > 40 * 1024 * 1024) { showToast("That PDF is over 40 MB. Export a smaller copy and try again."); return; }
+    const data = await file.arrayBuffer();
+    const head = new TextDecoder().decode(new Uint8Array(data.slice(0, 1024)));
+    if (!head.includes("%PDF")) { showToast("That file isn't a PDF."); return; }
+    const saved = await chartPut(cur.id, { name: file.name.replace(/\.pdf$/i, ""), data, added: new Date().toISOString(), size: file.size });
+    log(`Chart added to ${cur.name}: ${file.name}${saved ? "" : " (kept until reload: this browser blocks storage)"}`, saved ? "" : "warn");
+    chart.pageBySong[cur.id] = 1;
+    closeChartDoc();
+    showChart();
+  });
+  $("chart-remove").addEventListener("click", () => {
+    const cur = currentPreset();
+    if (!cur) return;
+    if (chart.removeArmed !== cur.id) {
+      chart.removeArmed = cur.id;
+      $("chart-remove").textContent = "Tap again to remove";
+      setTimeout(() => { if (chart.removeArmed === cur.id) { chart.removeArmed = null; $("chart-remove").textContent = "Remove"; } }, 3000);
+      return;
+    }
+    chart.removeArmed = null;
+    $("chart-remove").textContent = "Remove";
+    chartDelete(cur.id).then(() => { log(`Chart removed from ${cur.name}`); showChart(); });
+  });
+  let chartResize = null;
+  window.addEventListener("resize", () => { clearTimeout(chartResize); chartResize = setTimeout(() => { if (chart.tab === "chart") drawChartPage(); }, 150); });
 
   // ---------- grooves (plan §08, M3) ----------
   // A groove is a short drum pattern on a 16th grid (two steps per eighth in /8

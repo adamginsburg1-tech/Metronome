@@ -30,6 +30,10 @@ const drumVoices = drumsIndex.voices.map((v) => ({
 }));
 const samplesScript = `/* ${kitsIndex.source} */\nwindow.POCKET_SAMPLE_KITS = ${JSON.stringify(sampleKits)};\nwindow.POCKET_DRUM_VOICES = ${JSON.stringify(drumVoices)};`;
 const app = read("src/app.js");
+// PDF charts: pdf.js (Apache-2.0, src/vendor/pdfjs), kept as inert text and only
+// run when a chart is first shown, so it costs nothing at start-up.
+const pdfBlocks = `<script type="text/plain" id="pdfjs-src">${read("src/vendor/pdfjs/pdf.min.js")}</script>
+<script type="text/plain" id="pdfjs-worker-src">${read("src/vendor/pdfjs/pdf.worker.min.js")}</script>`;
 const TITLE = "POCKET Web Test";
 
 const dist = join(root, "dist");
@@ -55,6 +59,7 @@ ${sounds}
 <script>
 ${samplesScript}
 </script>
+${pdfBlocks}
 <script>
 ${app}
 </script>
@@ -96,6 +101,7 @@ ${sounds}
 <script>
 ${samplesScript}
 </script>
+${pdfBlocks}
 <script>
 ${app}
 </script>

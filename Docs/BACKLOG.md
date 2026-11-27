@@ -85,6 +85,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Swing steps refined to the drum-machine convention (D-034)
 - ☑ Port `grooveEventsIn` to the Swift core (D-036)
 - ☑ Kit kick: synthesized, Concert kept as an option (D-037)
+- ☑ PDF charts per song in the web test (D-038); native: PDFKit + PencilKit markup
 
 ## Later (M2+)
 Interval trainer & gap click (segments + `.muted` already support this), session

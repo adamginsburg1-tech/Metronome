@@ -114,9 +114,31 @@
       </div>
     </section>
 
-    <section class="panel cc-only cc-notes" id="cc-notes-panel" aria-label="Song notes">
-      <div class="cc-head-row"><h2 class="cc-head">Song notes</h2><span class="cc-label" id="cc-notes-state">Per song · saved automatically</span></div>
-      <textarea class="cc-notes-text" id="cc-notes" placeholder="Notes for this song: form, cues, endings, who counts it off…"></textarea>
+    <section class="panel cc-only cc-notes" id="cc-notes-panel" aria-label="Song notes and chart">
+      <div class="cc-head-row">
+        <div class="cc-tabs" role="tablist" aria-label="Song notes or chart">
+          <button type="button" role="tab" id="cc-tab-notes" aria-selected="true" aria-controls="cc-notes">Song notes</button>
+          <button type="button" role="tab" id="cc-tab-chart" aria-selected="false" aria-controls="cc-chart">Chart</button>
+        </div>
+        <span class="cc-label" id="cc-notes-state">Per song · saved automatically</span>
+      </div>
+      <textarea class="cc-notes-text" id="cc-notes" role="tabpanel" aria-labelledby="cc-tab-notes" placeholder="Notes for this song: form, cues, endings, who counts it off…"></textarea>
+      <div class="cc-chart" id="cc-chart" role="tabpanel" aria-labelledby="cc-tab-chart" hidden>
+        <div class="chart-toolbar">
+          <button type="button" class="btn small" id="chart-prev" aria-label="Previous page">‹ Page</button>
+          <span class="chart-page" id="chart-page" aria-live="polite">–</span>
+          <button type="button" class="btn small" id="chart-next" aria-label="Next page">Page ›</button>
+          <button type="button" class="btn small" id="chart-fit" aria-pressed="false">Fit width</button>
+          <span class="chart-spacer"></span>
+          <button type="button" class="btn small" id="chart-add">Add chart (PDF)</button>
+          <button type="button" class="btn small danger" id="chart-remove" hidden>Remove</button>
+          <input type="file" id="chart-file" accept="application/pdf,.pdf" hidden>
+        </div>
+        <div class="chart-view" id="chart-view" tabindex="0" aria-label="Chart page. Tap the left or right side, or press Page Up / Page Down, to turn pages.">
+          <canvas id="chart-canvas" hidden></canvas>
+          <p class="chart-empty" id="chart-empty">No chart for this song yet. Add a PDF.</p>
+        </div>
+      </div>
     </section>
 
     <section class="panel groove" id="groove-panel" aria-label="Groove" data-on="false">

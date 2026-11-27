@@ -313,3 +313,10 @@ its own meter, accents, subdivision and gap click, and play/rest times.
 3. Tap steps to edit while it plays; changes are heard on the next pass.
 4. Balance click and drums in the Mixer (volume, pan, mute).
 5. Save the song (preset): the groove and mix come back with it.
+
+### J14 — Read a chart while playing
+1. In the Command Center, open the Chart tab next to Song notes.
+2. Add chart (PDF): it is stored with the song on this iPad.
+3. Turn pages with Page buttons, a tap on the left or right side of the page, or a
+   Bluetooth page-turner (Page Up/Down or ←/→). ↑/↓ still change the tempo.
+4. Next/Prev song shows that song's chart, back on the page you left it.
