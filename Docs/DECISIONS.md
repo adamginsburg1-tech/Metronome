@@ -264,3 +264,11 @@ presets with Next up / After that, the click engine panel and per-preset song
 notes. The earlier layout stays as **Settings → Look → Layout → Clean**. Both
 layouts drive the same engine and settings; only `data-layout` changes. Tempo
 lock blocks every tempo input (nudges, tap, dial, keypad, arrow keys).
+
+## D-032 — Bundled UI font and gradient keys (console look)
+The monospace face in look D read as a terminal, not an instrument. Look D now
+uses Barlow Semi Condensed (SIL OFL 1.1, `web/src/fonts`), weights 500–800, inlined
+as base64 by `build.mjs` so it works offline (~96 KB). Monospace stays only for
+logs and test reports. Every key uses one gradient recipe (lit top edge, sheen on
+the upper half, solid base that compresses on press), coloured per role: green
+play, amber pause, red stop, tan choices, dark keys, green-glow "on" state.

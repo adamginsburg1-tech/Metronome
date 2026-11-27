@@ -9,7 +9,9 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(root, p), "utf8");
-const css = read("src/styles.css");
+// Bundled UI font (Barlow Semi Condensed, SIL OFL; see src/fonts), inlined so it works offline.
+const fontFaces = [500, 600, 700, 800].map((w) => `@font-face { font-family: "Pocket Sans"; font-style: normal; font-weight: ${w}; font-display: swap; src: url(data:font/woff2;base64,${readFileSync(join(root, "src/fonts", `barlow-semi-condensed-latin-${w}-normal.woff2`)).toString("base64")}) format("woff2"); }`).join("\n");
+const css = fontFaces + "\n" + read("src/styles.css");
 const body = read("src/body.html");
 const timing = read("src/timing.js");
 const nosleep = read("src/vendor/nosleep-media.js");
