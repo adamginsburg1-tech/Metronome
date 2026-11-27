@@ -370,3 +370,9 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
 - **All regression scripts** pass with no errors; **Node** 46 tests pass.
 - Not verified: whether the claude.ai artifact host allows worker threads (the
   main-thread fallback covers it) and real iPad page-turner pedals.
+
+## MIDI core (D-039)
+- **Swift:** 58 tests, 0 failures, no build warnings. New `MIDITests` (7): parser
+  (running status, real-time interleaved, SysEx, packet boundaries), learn/rebind/
+  clear, CC press once until release, debounce and channel filter, mapping
+  save/load, device connect/disconnect messages.

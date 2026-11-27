@@ -331,3 +331,16 @@ first shown, with a main-thread fallback if worker threads are blocked. Fit page
 ←/→ or Page Up/Down (Bluetooth page-turner pedals). Remove needs two taps. The
 native app will use PDFKit + PencilKit as planned; this is the web stand-in.
 Page size: the build grows ~1.5 MB.
+
+## D-039 — MIDI control core (platform-independent)
+iPad browsers have no Web MIDI, so MIDI waits for the native app (plan §08, M6).
+The logic is built and tested now in `Domain/MIDI`, so the app only has to pass
+Core MIDI bytes in and act on the result:
+- `MIDIParser`: running status, real-time bytes anywhere, SysEx skipped, note-on
+  velocity 0 = note-off, state kept across packets.
+- `MIDIRouter` + `MIDIMapping`: actions (play/pause, stop, next/previous song, tap,
+  tempo ±, panic, count-in, gap, chart pages); a press is note-on, a CC rising
+  through 64 (fires once until released) or a program change; per-trigger debounce
+  (120 ms default); channel filter (omni or 1–16); learn binds the next press and
+  moves a pedal off any other action; clear one or all; Codable for per-device saving.
+- `MIDIDeviceMonitor`: connect/disconnect events with on-screen copy.
