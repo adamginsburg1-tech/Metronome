@@ -251,3 +251,43 @@ test("gaps never move clicks and survive tempo changes", () => {
   for (let t = 0; t < 20; t += 0.137) got = got.concat(changed.eventsIn(t, Math.min(20, t + 0.137)));
   assert.deepEqual(got, changed.eventsIn(0, 20));
 });
+
+// ---------- swing ----------
+test("swing delays only the second note of each pair; beats stay exact", () => {
+  const meter = T.makeMeter(4, 4);
+  const eighths = T.PlaybackPlan.click({ pattern: T.makePattern({ meter, subdivision: 2, swing: 60 }), tempo: T.makeTempo(120) });
+  // Beat = 0.5 s; the off-eighth lands at 60% of the beat (0.3 s) instead of 0.25 s.
+  const ev = eighths.eventsIn(0, 2 - 1e-9);
+  assert.deepEqual(ev.map((e) => +e.time.toFixed(9)), [0, 0.3, 0.5, 0.8, 1, 1.3, 1.5, 1.8]);
+  const sixteenths = T.PlaybackPlan.click({ pattern: T.makePattern({ meter, subdivision: 4, swing: 60 }), tempo: T.makeTempo(120) });
+  // Sixteenths pair within each eighth: 0, 0.15, 0.25, 0.4, 0.5 …
+  assert.deepEqual(sixteenths.eventsIn(0, 0.5 + 1e-9).map((e) => +e.time.toFixed(9)), [0, 0.15, 0.25, 0.4, 0.5]);
+  // Triplet swing ≈ 67%
+  const triplet = T.PlaybackPlan.click({ pattern: T.makePattern({ meter, subdivision: 2, swing: 67 }), tempo: T.makeTempo(120) });
+  assert.ok(Math.abs(triplet.eventsIn(0, 0.5)[1].time - 0.335) < 1e-9);
+});
+
+test("swing ignores subdivisions that don't pair, and is bounded", () => {
+  const meter = T.makeMeter(4, 4);
+  const triplets = T.PlaybackPlan.click({ pattern: T.makePattern({ meter, subdivision: 3, swing: 70 }), tempo: T.makeTempo(120) });
+  assert.deepEqual(triplets.eventsIn(0, 0.5 - 1e-9).map((e) => +e.time.toFixed(9)), [0, +(0.5 / 3).toFixed(9), +(1 / 3).toFixed(9)]);
+  assert.throws(() => T.makePattern({ meter, subdivision: 2, swing: 80 }));
+  assert.throws(() => T.makePattern({ meter, subdivision: 2, swing: 40 }));
+  // Heaviest swing still keeps every note in order.
+  const heavy = T.PlaybackPlan.click({ pattern: T.makePattern({ meter, subdivision: 8, swing: 75 }), tempo: T.makeTempo(300) });
+  const times = heavy.eventsIn(0, 10).map((e) => e.time);
+  for (let i = 1; i < times.length; i++) assert.ok(times[i] > times[i - 1]);
+});
+
+test("swing: windows stay exact and swing can change mid-bar", () => {
+  const meter = T.makeMeter(4, 4);
+  const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter, subdivision: 2, swing: 64 }), tempo: T.makeTempo(97) });
+  let got = [];
+  for (let t = 0; t < 30; t += 0.0737) got = got.concat(plan.eventsIn(t, Math.min(30, t + 0.0737)));
+  assert.deepEqual(got, plan.eventsIn(0, 30));
+  const straight = T.makePattern({ meter, subdivision: 2 });
+  const changed = plan.changingAt({ bar: 0, grid: 2 }, (s) => ({ ...s, pattern: straight }));
+  const ev = changed.eventsIn(0, 60 / 97 * 4 - 1e-9).map((e) => e.time / (60 / 97));
+  assert.ok(Math.abs(ev[1] - 0.64) < 1e-9, "first pair still swung");
+  assert.ok(Math.abs(ev[3] - 1.5) < 1e-9, "straight from beat 2");
+});

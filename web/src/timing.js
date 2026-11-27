@@ -57,15 +57,33 @@
     return map;
   }
 
-  function makePattern({ meter, subdivision = 1, accents, subLevel = LEVEL.sub }) {
+  /** Subdivisions that pair up and can swing (plan §07: "compatible paired divisions"). */
+  const SWING_SUBDIVISIONS = [2, 4, 8];
+
+  /**
+   * swing: percent of a pair given to its first note, 50 (straight) to 75.
+   * About 67 is triplet swing. Only the second note of each pair moves, by
+   * (swing − 50) / 50 of a step, so beats stay exact and notes never cross.
+   */
+  function makePattern({ meter, subdivision = 1, accents, subLevel = LEVEL.sub, swing = 50 }) {
     if (!Number.isInteger(subdivision) || subdivision < 1 || subdivision > 8) throw new TimingError(`subdivision ${subdivision} must be 1…8`);
     const map = accents ? accents.slice() : defaultAccents(meter);
     if (map.length !== meter.num) throw new TimingError(`expected ${meter.num} accents, got ${map.length}`);
+    if (!Number.isFinite(swing) || swing < 50 || swing > 75) throw new TimingError(`swing ${swing} must be 50–75%`);
+    const swings = swing > 50 && SWING_SUBDIVISIONS.includes(subdivision);
     return Object.freeze({
-      meter, subdivision, accents: Object.freeze(map), subLevel,
+      meter, subdivision, accents: Object.freeze(map), subLevel, swing: Math.round(swing),
+      swingOffset: swings ? (Math.round(swing) - 50) / 50 : 0,
       eventsPerBar: meter.num * subdivision,
       stepWhole: meter.unitWhole / subdivision,
     });
+  }
+  /** Offset of grid point `gi`, in steps (only the off-note of each pair moves). */
+  const stepOffset = (pattern, gi) => (pattern.swingOffset && gi % 2 === 1 ? pattern.swingOffset : 0);
+  /** Time of event k in resolved segment r, including swing. */
+  function eventTime(r, k) {
+    const p = r.segment.pattern;
+    return r.anchor + (k + stepOffset(p, (r.startGrid + k) % p.eventsPerBar)) * r.step;
   }
 
   function levelAt(pattern, gridIndex) {
@@ -245,7 +263,7 @@
         if (r.anchor >= t1) break;
         const p = r.segment.pattern;
         for (let k = firstK(r, t0); k < r.count; k++) {
-          const t = r.anchor + k * r.step;
+          const t = eventTime(r, k);
           if (t >= t1) return out;
           const g = r.startGrid + k;
           const gi = g % p.eventsPerBar;
@@ -267,7 +285,7 @@
     /** Time of a position {bar, grid}; null if outside the plan. */
     timeOf(pos) {
       const loc = this._locate(pos);
-      return loc ? this._r[loc.i].anchor + loc.k * this._r[loc.i].step : null;
+      return loc ? eventTime(this._r[loc.i], loc.k) : null;
     }
 
     startTimeOfBar(bar) { return this.timeOf({ bar, grid: 0 }); }
@@ -339,13 +357,13 @@
 
   /** First event index in `r` whose time is >= t (may equal r.count). */
   function firstK(r, t) {
-    const time = (k) => r.anchor + k * r.step;
-    let k = Math.max(0, Math.ceil((t - r.anchor) / r.step) - 1);
+    const time = (k) => eventTime(r, k);
+    let k = Math.max(0, Math.ceil((t - r.anchor) / r.step) - 2);
     if (r.count !== Infinity) k = Math.min(k, r.count);
     while (k > 0 && time(k - 1) >= t) k--;
     while (k < r.count && time(k) < t) k++;
     return k;
   }
 
-  return { LEVEL, LEVEL_NAMES, TEMPO_MIN, TEMPO_MAX, TimingError, makeMeter, defaultAccents, makePattern, levelAt, makeTempo, makeSegment, beatGrids, sameGrid, gapRandom, PlaybackPlan };
+  return { LEVEL, LEVEL_NAMES, TEMPO_MIN, TEMPO_MAX, TimingError, makeMeter, defaultAccents, makePattern, levelAt, makeTempo, makeSegment, beatGrids, sameGrid, gapRandom, SWING_SUBDIVISIONS, PlaybackPlan };
 });

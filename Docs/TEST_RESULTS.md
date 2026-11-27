@@ -288,3 +288,18 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   34 Node tests; no console errors; no overflow at 390 px.
 - **Found and fixed during testing:** Start passed a stage object instead of its
   tempo (routine didn't start); routine cards had uneven widths.
+
+## 2026-11-27 · Swing
+
+- **JS core:** 37 tests, 0 failures. New: swung eighths at 60% land at 0, 0.3,
+  0.5, 0.8 s (120 BPM); swung sixteenths at 0, 0.15, 0.25, 0.4 s; 67% gives 0.335 s;
+  triplets ignore swing; 80% and 40% rejected; heaviest swing keeps notes in
+  order; adjacent windows exact; swing changes mid-bar.
+- **Swift core:** 41 tests, 0 failures. New `SwingTests` with the same values in
+  frames (14 400 for the 60% off-eighth at 48 kHz) and window checks in 7/8.
+- **Browser (iPad Pro 11 emulation), recording real scheduled click times:**
+  Triplet swing measured 0.670 of the beat; switching to Straight while playing
+  took effect at the next unscheduled eighth (times in eighths: … 5.34, 6.00, 7.00,
+  8.00 …); Swing row hidden for no subdivision and triplets, shown for ÷2; Settings
+  greys it out for triplets with an explanation; the console display shows
+  "swing 60%"; regression checks pass; no errors.

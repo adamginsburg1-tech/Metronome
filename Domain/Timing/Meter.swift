@@ -6,6 +6,7 @@ public enum TimingError: Error, Equatable, Sendable {
     case tempoOutOfRange(Rational)
     case invalidAccents(String)
     case invalidSampleRate(Int)
+    case invalidSwing(Int)
     case invalidPlan(String)
 }
 

@@ -439,8 +439,13 @@ private struct ResolvedSegment: Sendable {
         anchor + Rational(k) * step
     }
 
+    /// Where event k sounds, including swing (anchors and bar lines are unaffected:
+    /// swing never moves an even grid point).
     func frame(ofEvent k: Int64) -> Int64 {
-        exactPoint(ofEvent: k).roundedHalfUp
+        let pattern = segment.pattern
+        let gridIndex = Int((Int64(startGrid) + k) % Int64(pattern.eventsPerBar))
+        let offset = pattern.swingOffset(atGridIndex: gridIndex)
+        return (anchor + (Rational(k) + offset) * step).roundedHalfUp
     }
 
     /// First event index whose frame is >= `frame` (may equal `eventCount`).

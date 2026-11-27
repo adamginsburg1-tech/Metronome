@@ -116,12 +116,13 @@
         accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
         workspace: settings.workspace, routines, routineId, routineWorking: routineCfg, sessions, presets, presetId: settings.presetId,
-        gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, answers, notes: $("notes").value,
+        gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, swing: settings.swing, answers, notes: $("notes").value,
       }));
     } catch { /* storage unavailable: fine */ }
   }
   const stored = loadStore();
 
+  const SWING_CHOICES_IDS = [50, 55, 60, 67, 72];
   const settings = {
     bpm: clampBpm(stored.bpm ?? 120),
     meterId: METERS.some((m) => m.id === stored.meterId) ? stored.meterId : "4/4",
@@ -155,6 +156,7 @@
     gapPercent: [10, 20, 30, 40, 50].includes(stored.gapPercent) ? stored.gapPercent : 30,
     gapSeed: Number.isInteger(stored.gapSeed) ? stored.gapSeed : Math.floor(1000 + Math.random() * 9000),
     gapHideLights: stored.gapHideLights ?? true,
+    swing: SWING_CHOICES_IDS.includes(stored.swing) ? stored.swing : 50,
     presetId: typeof stored.presetId === "string" ? stored.presetId : Array.isArray(stored.presets) ? null : "p-quick",
   };
   const answers = stored.answers || {};
@@ -189,7 +191,7 @@
 
   // Presets: named Quick Click setups (plan §08 "Preset"). Starter examples are
   // added once and can be deleted.
-  const PRESET_FIELDS = ["bpm", "meterId", "accents", "subdivision", "sound", "countInMode", "countInBars", "gapMode", "gapPlay", "gapMute", "gapPercent", "gapSeed"];
+  const PRESET_FIELDS = ["bpm", "meterId", "accents", "subdivision", "swing", "sound", "countInMode", "countInBars", "gapMode", "gapPlay", "gapMute", "gapPercent", "gapSeed"];
   const presets = Array.isArray(stored.presets) ? stored.presets : [
     { id: "p-quick", name: "Quick Click", bpm: 120, meterId: "4/4", accents: null, subdivision: 1, sound: "wood", countInMode: "every", countInBars: 1 },
     { id: "p-pedal", name: "Double pedal eighths", bpm: 130, meterId: "4/4", accents: null, subdivision: 2, sound: "wood", countInMode: "every", countInBars: 1 },
@@ -227,8 +229,14 @@
   }
   function currentPattern() {
     const meter = currentMeter();
-    return T.makePattern({ meter, subdivision: settings.subdivision, accents: currentAccents(meter) });
+    return T.makePattern({ meter, subdivision: settings.subdivision, accents: currentAccents(meter), swing: settings.swing });
   }
+  // Swing (plan §07): only for paired subdivisions; the off-note moves later.
+  const SWING_CHOICES = [
+    { id: 50, label: "Straight" }, { id: 55, label: "Light", note: "55%" }, { id: 60, label: "Medium", note: "60%" },
+    { id: 67, label: "Triplet", note: "67%" }, { id: 72, label: "Heavy", note: "72%" },
+  ];
+  const swingApplies = () => T.SWING_SUBDIVISIONS.includes(settings.subdivision);
   function currentTempo() { return T.makeTempo(settings.bpm, currentMeter().defaultBeatUnit); }
   function glyphFor(beatUnit) {
     if (Math.abs(beatUnit - 3 / 8) < 1e-9) return "♩.";
@@ -1024,6 +1032,19 @@
     chip(["sub-chips", "sub-chips-sheet"], SUBDIVISIONS.map((n) => ({ id: n, label: n === 1 ? "Off" : subNames[n] })), (s) => s.id === settings.subdivision, (s) => {
       settings.subdivision = s.id; queueChange("pattern"); renderBeats();
     });
+    const pickSwing = (x) => {
+      if (x.id === settings.swing) return;
+      settings.swing = x.id;
+      log(`Swing: ${x.id === 50 ? "straight" : `${x.id}%`}`);
+      queueChange("pattern");
+    };
+    chip(["swing-chips", "swing-chips-sheet"], SWING_CHOICES, (x) => x.id === settings.swing, pickSwing);
+    const applies = swingApplies();
+    $("swing-field").hidden = !applies;
+    $("swing-note-sheet").textContent = applies
+      ? "Moves the second note of each pair later; beats stay exact. 67% is triplet swing."
+      : "Swing works with ÷2 (eighths) and ÷4 (sixteenths). Pick one under Subdivision.";
+    for (const b of $("swing-chips-sheet").querySelectorAll("button")) b.disabled = !applies;
     chip("countin-chips", COUNT_IN_MODES, (c) => c.id === settings.countInMode, (c) => { settings.countInMode = c.id; });
     chip("countin-bars-chips", COUNT_IN_BARS.map((n) => ({ id: n, label: `${n} bar${n > 1 ? "s" : ""}` })), (c) => c.id === settings.countInBars, (c) => { settings.countInBars = c.id; });
     $("countin-bars").hidden = settings.countInMode === "off";
@@ -1154,7 +1175,7 @@
     lines.push(`  Tightest lead: ${Number.isFinite(stats.minHeadroom) ? (stats.minHeadroom * 1000).toFixed(1) + " ms" : "n/a"}`);
     lines.push(`  Audio vs system clock: ${stats.driftPpm === null ? "n/a" : stats.driftPpm.toFixed(1) + " ppm"}`);
     lines.push(`  Interruptions: ${stats.interruptions}`);
-    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, sound ${settings.sound} (accents: ${settings.accentStyle}, count-in: ${settings.countInSound}, subdivisions ${settings.subVolume}%), volume ${settings.volume}%, gap click ${settings.gapMode === "off" ? "off" : gapSummary()}${settings.gapMode !== "off" ? ` (lights ${settings.gapHideLights ? "hidden" : "shown"})` : ""}, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}, play in silent mode ${settings.playOnSilent}`);
+    lines.push(`  Settings: ${fmtBpm(settings.bpm)} BPM, ${currentMeter().label}, subdivision ${settings.subdivision}${swingApplies() && settings.swing > 50 ? ` swing ${settings.swing}%` : ""}, count-in ${settings.countInMode} (${settings.countInBars} bar), tempo changes on next ${settings.tempoChange}, sound ${settings.sound} (accents: ${settings.accentStyle}, count-in: ${settings.countInSound}, subdivisions ${settings.subVolume}%), volume ${settings.volume}%, gap click ${settings.gapMode === "off" ? "off" : gapSummary()}${settings.gapMode !== "off" ? ` (lights ${settings.gapHideLights ? "hidden" : "shown"})` : ""}, keep screen awake ${settings.awake}, stop on output change ${settings.routeStop}, play in silent mode ${settings.playOnSilent}`);
     lines.push("", "Checklist");
     for (const c of CHECKS) for (const r of c.rows) lines.push(`  ${r.label}: ${answers[r.id] || "Not tried"}`);
     lines.push("", "Practice sessions (latest first)");
@@ -1916,7 +1937,8 @@
     const grouping = meter.grouping.some((g) => g > 1) && !meter.compound ? ` (${meter.grouping.join("+")})` : "";
     $("lcd-meter").textContent = `${meter.num}/${meter.den}${grouping} time`;
     const countIn = settings.countInMode === "off" ? "No count-in" : `Count-in ${settings.countInBars} bar${settings.countInBars > 1 ? "s" : ""}`;
-    $("lcd-pattern").textContent = `${subdivisionName(pattern)} · ${(SOUNDS.find((k) => k.id === settings.sound) || SOUNDS[0]).label} · ${countIn}`;
+    const swing = pattern.swingOffset ? ` · swing ${pattern.swing}%` : "";
+    $("lcd-pattern").textContent = `${subdivisionName(pattern)}${swing} · ${(SOUNDS.find((k) => k.id === settings.sound) || SOUNDS[0]).label} · ${countIn}`;
     const bar = eng.currentBar === null ? null : eng.currentBar + eng.barOffset + 1;
     $("lcd-state").textContent = {
       idle: "Ready at bar 1",
@@ -1974,7 +1996,7 @@
   const snapshot = () => Object.fromEntries(PRESET_FIELDS.map((k) => [k, settings[k] ?? null]));
   // Presets saved before a field existed get its default (gaps off); the random
   // pattern number only matters when the preset has one.
-  const PRESET_DEFAULTS = { gapMode: "off", gapPlay: 2, gapMute: 2, gapPercent: 30 };
+  const PRESET_DEFAULTS = { gapMode: "off", gapPlay: 2, gapMute: 2, gapPercent: 30, swing: 50 };
   const presetValue = (p, k) => (p[k] !== undefined ? p[k] : PRESET_DEFAULTS[k]);
   const samePreset = (p) => PRESET_FIELDS.every((k) => presetValue(p, k) === undefined || JSON.stringify(presetValue(p, k) ?? null) === JSON.stringify(settings[k] ?? null));
   const currentPreset = () => presets.find((p) => p.id === settings.presetId) || null;
@@ -1983,7 +2005,9 @@
     const kit = SOUNDS.find((k) => k.id === p.sound);
     const gm = presetValue(p, "gapMode");
     const gaps = gm === "cycle" ? ` · gaps ${presetValue(p, "gapPlay")}/${presetValue(p, "gapMute")}` : gm === "random" ? ` · gaps ${presetValue(p, "gapPercent")}%` : "";
-    return `${fmtBpm(p.bpm)} · ${m ? (m.label || m.id) + (m.note ? ` ${m.note}` : "") : p.meterId}${p.subdivision > 1 ? ` ÷${p.subdivision}` : ""} · ${kit ? kit.label : p.sound}${gaps}`;
+    const sw = presetValue(p, "swing");
+    const swing = sw > 50 && T.SWING_SUBDIVISIONS.includes(p.subdivision) ? ` swing ${sw}%` : "";
+    return `${fmtBpm(p.bpm)} · ${m ? (m.label || m.id) + (m.note ? ` ${m.note}` : "") : p.meterId}${p.subdivision > 1 ? ` ÷${p.subdivision}` : ""}${swing} · ${kit ? kit.label : p.sound}${gaps}`;
   }
   function renderPresetCurrent() {
     const p = currentPreset();

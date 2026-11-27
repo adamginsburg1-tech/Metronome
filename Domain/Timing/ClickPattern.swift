@@ -70,12 +70,19 @@ public struct ClickPattern: Sendable, Hashable {
     /// Level for clicks between units. `.muted` turns subdivisions off
     /// without changing the grid.
     public let subdivisionLevel: AccentLevel
+    /// Percent of each pair given to its first note: 50 (straight) to 75; about
+    /// 67 is triplet swing. Applies only to paired subdivisions (2, 4, 8); only
+    /// the second note of each pair moves, so beats stay exact (plan §07).
+    public let swing: Int
+
+    public static let swingSubdivisions: Set<Int> = [2, 4, 8]
 
     public init(
         meter: Meter,
         subdivision: Int = 1,
         accents: [AccentLevel]? = nil,
-        subdivisionLevel: AccentLevel = .subdivision
+        subdivisionLevel: AccentLevel = .subdivision,
+        swing: Int = 50
     ) throws {
         guard ClickPattern.supportedSubdivisions.contains(subdivision) else {
             throw TimingError.invalidSubdivision(subdivision)
@@ -88,6 +95,8 @@ public struct ClickPattern: Sendable, Hashable {
         self.subdivision = subdivision
         self.accents = map
         self.subdivisionLevel = subdivisionLevel
+        guard (50...75).contains(swing) else { throw TimingError.invalidSwing(swing) }
+        self.swing = swing
     }
 
     /// Downbeat on unit 0, group accent on other group starts (when units are
@@ -114,5 +123,11 @@ public struct ClickPattern: Sendable, Hashable {
     /// Same meter and accents, no subdivisions — used for count-ins.
     public var unitsOnly: ClickPattern {
         try! ClickPattern(meter: meter, subdivision: 1, accents: accents)
+    }
+
+    /// Offset of grid point `gridIndex` in steps (the off-note of a pair moves later).
+    public func swingOffset(atGridIndex gridIndex: Int) -> Rational {
+        guard swing > 50, ClickPattern.swingSubdivisions.contains(subdivision), gridIndex % 2 == 1 else { return .zero }
+        return Rational(Int64(swing - 50), 50)
     }
 }

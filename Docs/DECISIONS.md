@@ -247,3 +247,10 @@ Owner: "Preferred look is D for now. It needs to be overhauled eventually becaus
 it looks terrible." D becomes the default for new devices; A–C stay switchable.
 A proper visual redesign of D is on the backlog; it should start from the
 owner's specific complaints and reference images, not from more variants.
+
+## D-030 · Swing on paired subdivisions, in both timing cores (2026-11-27)
+Swing is a pattern property (50–75%), applied only for ÷2, ÷4 and ÷8: odd grid
+points move later by (swing − 50)/50 of a step. Even grid points (beats, bar
+lines, segment anchors) never move, so tempo changes, gaps and bar maths are
+untouched; swing can change mid-bar like accents. JS and Swift compute the same
+offsets (tests check frames/times in both). Practice routines stay straight for now.

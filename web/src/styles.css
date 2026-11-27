@@ -340,6 +340,7 @@ button { cursor: pointer; }
 }
 .chip[aria-pressed="true"] { border-color: var(--info); color: var(--info); background: color-mix(in srgb, var(--info) 14%, var(--surface)); }
 .chip small { color: var(--muted); margin-left: 4px; }
+.chip:disabled { opacity: 0.4; cursor: default; }
 .volume { display: flex; align-items: center; gap: 12px; }
 .volume input { flex: 1; accent-color: var(--accent); min-height: 44px; }
 .volume output { width: 4ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }

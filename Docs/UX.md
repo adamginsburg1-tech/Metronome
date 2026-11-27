@@ -284,3 +284,14 @@ its own meter, accents, subdivision and gap click, and play/rest times.
 - **Summary and history** name the routine and show each stage's tempo and
   subdivision.
 - The main button reads **Start routine** in Practice.
+
+### J11 · Swing (plan §07)
+- With ÷2 (eighths) or ÷4 (sixteenths), a **Swing** row appears under Subdivision:
+  **Straight · Light 55% · Medium 60% · Triplet 67% · Heavy 72%**.
+- Swing moves only the second note of each pair later; every beat (and every
+  first note of a pair) stays exact, and notes can never cross.
+- Other subdivisions (triplets, quintuplets…) play straight; Settings › Click
+  shows the choices greyed out with "Swing works with ÷2 (eighths) and ÷4
+  (sixteenths)".
+- Changes apply immediately while playing. Presets remember swing; the console
+  display shows "swing 60%".
