@@ -297,3 +297,12 @@ steps are 54, 58, 62, 66, 70; 75 is the usual maximum. Earlier values 55, 60 and
 were not standard steps; saved songs map 55→54, 60→58, 72→70. Genre labels are
 omitted because sources disagree on them. The engine and Swift core already accept
 50–75, so no timing change.
+
+## D-035 — Groove swing pairs on the groove's own grid
+A groove swings the pairs of its own notes, not the click's: a groove with any note
+on an odd sixteenth pairs sixteenths; otherwise it pairs eighths. Pairs restart each
+bar. Under any click (quarters, eighths, triplets, sixteenths) an eighth groove
+swings its eighths to the same share (0.67 at 67%), and a sixteenth groove swings its
+sixteenths. Previously the pair followed the click, so a sixteenth groove under a
+quarter-note click swung its eighths and left its sixteenths even, and an eighth
+groove under a sixteenth click stayed straight. Clicks are unchanged.

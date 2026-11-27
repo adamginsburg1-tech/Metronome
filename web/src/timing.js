@@ -306,25 +306,26 @@
         const gw = p.meter.unitWhole / groove.stepsPerUnit;            // groove step, whole notes
         const ratio = gw / p.stepWhole;                                  // groove steps → click steps
         const stepsPerBar = Math.round((per * p.stepWhole) / gw);
-        // Swing pairs: the click's own steps when they pair up (so groove and
-        // click swing together), otherwise eighths (a groove can swing over a
-        // plain quarter-note click). Units: click steps since the bar line.
+        // Swing pairs belong to the groove: a groove with any note on an odd
+        // sixteenth pairs sixteenths (2 steps); otherwise it pairs eighths (4 steps).
+        // Pairs restart each bar. Only the second note of a pair moves (plan §07).
         const o = p.swing > 50 ? (p.swing - 50) / 50 : 0;
-        const half = SWING_SUBDIVISIONS.includes(p.subdivision) ? 1 : (p.meter.unitWhole / 2) / p.stepWhole;
-        const warp = (u) => {
-          if (!o) return u;
-          const v = u / half, pair = Math.floor(v / 2 + 1e-9), w = v - 2 * pair;
-          return half * (2 * pair + (w < 1 ? w * (1 + o) : 1 + o + (w - 1) * (1 - o)));
+        const pairSteps = lanes.some(([, steps]) => steps.some((lv, j) => lv > 0 && j % 2 === 1)) ? 2 : 4;
+        const half = pairSteps / 2;
+        const offset = (j) => {                                          // warped position of groove step j in its bar
+          if (!o) return j;
+          const w = j % pairSteps, base = j - w;
+          return base + (w < half ? w * (1 + o) : half * (1 + o) + (w - half) * (1 - o));
         };
-        const first = Math.ceil(r.startGrid / ratio - 1e-9);
-        const est = Math.floor(((t0 - r.anchor) / r.step + r.startGrid) / ratio) - 2;
-        for (let n = Math.max(first, est); ; n++) {
-          const u = n * ratio;
+        const est = Math.floor(((t0 - r.anchor) / r.step + r.startGrid) / ratio) - 4;
+        for (let n = Math.max(0, est); ; n++) {
+          const barRel = Math.floor(n / stepsPerBar + 1e-9), j = n - barRel * stepsPerBar;
+          const u = (barRel * stepsPerBar + offset(j)) * ratio;        // click steps from the bar line
+          if (u < r.startGrid - 1e-9) continue;
           if (u - r.startGrid >= r.count - 1e-9) break;
-          const t = r.anchor + (warp(u) - r.startGrid) * r.step;
+          const t = r.anchor + (u - r.startGrid) * r.step;
           if (t >= t1) break;
           if (t < t0) continue;
-          const barRel = Math.floor(n / stepsPerBar + 1e-9), j = n - barRel * stepsPerBar;
           const bar = r.firstBar + barRel;
           if (this.isGapBar(bar)) continue;
           for (const [lane, steps] of lanes) {

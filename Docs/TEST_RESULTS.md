@@ -329,3 +329,11 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   shows in the console line and the preset line; swing hidden for triplets in
   Settings with the explanatory note; the regression scripts pass with no errors.
 - **Node:** 42 tests pass.
+
+## Groove swing rule (D-035)
+- **Node:** 44 tests pass. New: a sixteenth groove swings sixteenths under a
+  quarter-note click (times 0, 0.165, 0.25, 0.415 s at 120 BPM, swing 66); an eighth
+  groove swings eighths under a sixteenth-note click (0, 0.33 s).
+- **Shares measured for every click (÷1, ÷2, ÷3, ÷4) at 67%:** eighth and sixteenth
+  grooves both give 0.670 for the swung pair.
+- **Browser regressions** (groove, swing, cc, presets, hig-check): no errors.

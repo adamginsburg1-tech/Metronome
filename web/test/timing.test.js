@@ -342,3 +342,20 @@ test("swing: windows stay exact and swing can change mid-bar", () => {
     assert.deepStrictEqual(plan.eventsIn(0, 2).map((e) => e.time), [0, 1]);
   });
 }
+{
+  const T = require("../src/timing.js");
+  const test = require("node:test");
+  const assert = require("node:assert");
+  const m44 = T.makeMeter(4, 4);
+  test("a sixteenth groove swings its sixteenths under a quarter-note click", () => {
+    const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter: m44, swing: 66 }), tempo: T.makeTempo(120) });
+    const hats = plan.grooveEventsIn(0, 0.499, { stepsPerUnit: 4, lanes: { hat: Array(16).fill(2) } }).map((e) => +e.time.toFixed(4));
+    // eighth = 0.25 s; off-sixteenth at 1.32 × 0.125 s
+    assert.deepStrictEqual(hats.slice(0, 4), [0, 0.165, 0.25, 0.415]);
+  });
+  test("an eighth groove swings its eighths under a sixteenth-note click", () => {
+    const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter: m44, subdivision: 4, swing: 66 }), tempo: T.makeTempo(120) });
+    const hats = plan.grooveEventsIn(0, 0.499, { stepsPerUnit: 4, lanes: { hat: [2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0] } }).map((e) => +e.time.toFixed(4));
+    assert.deepStrictEqual(hats, [0, 0.33]);
+  });
+}
