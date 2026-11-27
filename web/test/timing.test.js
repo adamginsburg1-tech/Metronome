@@ -359,3 +359,14 @@ test("swing: windows stay exact and swing can change mid-bar", () => {
     assert.deepStrictEqual(hats, [0, 0.33]);
   });
 }
+{
+  const T = require("../src/timing.js");
+  const test = require("node:test");
+  const assert = require("node:assert");
+  test("playhead lane does not change how an eighth groove pairs", () => {
+    const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter: T.makeMeter(4, 4), swing: 67 }), tempo: T.makeTempo(120) });
+    const eighths = [2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0];
+    const withStep = plan.grooveEventsIn(0, 0.999, { stepsPerUnit: 4, lanes: { hat: eighths, _step: Array(16).fill(1) } }).filter((e) => e.lane === "hat").map((e) => +e.time.toFixed(4));
+    assert.deepStrictEqual(withStep, [0, 0.335, 0.5, 0.835]);
+  });
+}

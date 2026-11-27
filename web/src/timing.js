@@ -310,7 +310,7 @@
         // sixteenth pairs sixteenths (2 steps); otherwise it pairs eighths (4 steps).
         // Pairs restart each bar. Only the second note of a pair moves (plan §07).
         const o = p.swing > 50 ? (p.swing - 50) / 50 : 0;
-        const pairSteps = lanes.some(([, steps]) => steps.some((lv, j) => lv > 0 && j % 2 === 1)) ? 2 : 4;
+        const pairSteps = lanes.some(([id, steps]) => id !== "_step" && steps.some((lv, j) => lv > 0 && j % 2 === 1)) ? 2 : 4; // _step is the playhead, not a sound
         const half = pairSteps / 2;
         const offset = (j) => {                                          // warped position of groove step j in its bar
           if (!o) return j;

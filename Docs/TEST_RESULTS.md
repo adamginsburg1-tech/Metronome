@@ -337,3 +337,12 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
 - **Shares measured for every click (÷1, ÷2, ÷3, ÷4) at 67%:** eighth and sixteenth
   grooves both give 0.670 for the swung pair.
 - **Browser regressions** (groove, swing, cc, presets, hig-check): no errors.
+
+## Bug found in the browser: eighth grooves stopped swinging (fixed)
+- The playhead lane (`_step`, one hit per step) was counted as notes, so every groove
+  paired as sixteenths and eighths stayed straight. Node tests missed it because they
+  don't include the playhead lane. Fixed: the playhead is ignored when choosing pairs;
+  a Node test now includes it.
+- **Browser, groove Rock eighths at 120 BPM:** swing 67 hi-hats at 0, 335, 500, 835 ms;
+  swing 50 at 0, 250, 500, 750 ms. Sixteenth groove at 67: 0, 167.5, 250, 417.5 ms.
+- **Node:** 45 tests pass.
