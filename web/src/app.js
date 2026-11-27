@@ -123,7 +123,11 @@
   }
   const stored = loadStore();
 
-  const SWING_CHOICES_IDS = [50, 55, 60, 67, 72];
+  // Steps follow the drum-machine convention (Roger Linn / Akai MPC): 50 straight,
+  // 54–70 in steps of 4, 67 ≈ exact triplet feel (2:1), 75 the usual maximum.
+  const SWING_CHOICES_IDS = [50, 54, 58, 62, 67, 70, 75];
+  // Earlier builds used 55, 60 and 72; map them to the nearest standard step.
+  const SWING_LEGACY = { 55: 54, 60: 58, 72: 70 };
   const settings = {
     bpm: clampBpm(stored.bpm ?? 120),
     meterId: METERS.some((m) => m.id === stored.meterId) ? stored.meterId : "4/4",
@@ -157,7 +161,7 @@
     gapPercent: [10, 20, 30, 40, 50].includes(stored.gapPercent) ? stored.gapPercent : 30,
     gapSeed: Number.isInteger(stored.gapSeed) ? stored.gapSeed : Math.floor(1000 + Math.random() * 9000),
     gapHideLights: stored.gapHideLights ?? true,
-    swing: SWING_CHOICES_IDS.includes(stored.swing) ? stored.swing : 50,
+    swing: SWING_CHOICES_IDS.includes(SWING_LEGACY[stored.swing] ?? stored.swing) ? (SWING_LEGACY[stored.swing] ?? stored.swing) : 50,
     // Layout: "dense" command centre (default, owner 2026-11-27) or "clean".
     layout: stored.layout === "clean" ? "clean" : "dense",
     tempoLock: stored.tempoLock === true,
@@ -241,8 +245,9 @@
   }
   // Swing (plan §07): only for paired subdivisions; the off-note moves later.
   const SWING_CHOICES = [
-    { id: 50, label: "Straight" }, { id: 55, label: "Light", note: "55%" }, { id: 60, label: "Medium", note: "60%" },
-    { id: 67, label: "Triplet", note: "67%" }, { id: 72, label: "Heavy", note: "72%" },
+    { id: 50, label: "Straight", note: "50%" }, { id: 54, label: "Light", note: "54%" }, { id: 58, label: "Relaxed", note: "58%" },
+    { id: 62, label: "Medium", note: "62%" }, { id: 67, label: "Triplet", note: "67%" }, { id: 70, label: "Heavy", note: "70%" },
+    { id: 75, label: "Max", note: "75%" },
   ];
   const swingApplies = () => T.SWING_SUBDIVISIONS.includes(settings.subdivision) || settings.grooveOn === true;
   function currentTempo() { return T.makeTempo(settings.bpm, currentMeter().defaultBeatUnit); }

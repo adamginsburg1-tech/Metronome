@@ -82,6 +82,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Swing for paired divisions, both cores, presets (D-030)
 - ☑ Dense Command Center default layout, Clean option in Settings (D-031)
 - ☑ Grooves: 13 starter grooves, step editor, user grooves, per-song mixer (D-033)
+- ☑ Swing steps refined to the drum-machine convention (D-034)
 - ☐ Port `grooveEventsIn` to the Swift core
 - ☐ Better kick sample (VCSL has only concert bass drums)
 

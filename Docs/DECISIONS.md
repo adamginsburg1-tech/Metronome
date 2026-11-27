@@ -288,3 +288,12 @@ hats, shaker, tambourine, each volume / pan / mute, through per-channel Web Audi
 buses. Groove choice, edits, on/off and mix are saved with each preset (song).
 Closed hat chokes a ringing open hat. Grooves are off in the Practice workspace.
 Samples: VCSL (CC0); the kick is a muted concert bass drum because VCSL has no kit kick.
+
+## D-034 — Swing steps follow drum-machine convention
+Swing choices are now 50 Straight, 54 Light, 58 Relaxed, 62 Medium, 67 Triplet,
+70 Heavy, 75 Max. Basis (web research, Roger Linn's LM-1 convention used by Akai MPC
+and most DAWs): 50 is straight; 67 (66⅔ exact) is the 2:1 triplet feel; the common
+steps are 54, 58, 62, 66, 70; 75 is the usual maximum. Earlier values 55, 60 and 72
+were not standard steps; saved songs map 55→54, 60→58, 72→70. Genre labels are
+omitted because sources disagree on them. The engine and Swift core already accept
+50–75, so no timing change.

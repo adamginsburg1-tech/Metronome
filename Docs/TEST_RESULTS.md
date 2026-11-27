@@ -323,3 +323,9 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   playing marks the groove edited; picking Six-eight switches the meter to 6/8 at the
   bar line; kick mute, groove choice and on/off survive reload; groove panel shows in
   Clean too; no overflow at phone width; all regression scripts pass; no errors.
+
+## Swing steps (D-034)
+- **Browser:** Triplet (67%) measured 0.670 of the beat offbeat; Relaxed (58%)
+  shows in the console line and the preset line; swing hidden for triplets in
+  Settings with the explanatory note; the regression scripts pass with no errors.
+- **Node:** 42 tests pass.
