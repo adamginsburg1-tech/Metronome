@@ -144,7 +144,8 @@
     // Play even when the iPad is on silent (owner requirement). On by default.
     playOnSilent: stored.playOnSilent ?? true,
     // Visual concept being compared (plan §04): a Studio, b Workshop, c Stage.
-    concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "a",
+    // Owner's choice for now (2026-11-27): D · Console. A full redesign is planned.
+    concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "d",
     settingsTab: ["click", "sound", "look", "ipad", "test"].includes(stored.settingsTab) ? stored.settingsTab : "click",
     workspace: stored.workspace === "practice" ? "practice" : "click",
     // Gap click (plan §07): off / cycle (play N bars, M silent) / random (seeded).

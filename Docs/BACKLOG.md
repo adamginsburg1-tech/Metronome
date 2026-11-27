@@ -43,7 +43,10 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
   inter-onset residuals ≤ 1 ms)
 - ☑ Three Quick Click visual concepts (A Studio / B Workshop / C Stage),
   switchable live in the web test (D-017)
-- ☐ **Owner:** try A/B/C at the stand, day and night; pick one
+- ☑ **Owner:** picked D · Console for now (D-029)
+- ☐ **Visual redesign of D** (owner: "looks terrible"): gather specific complaints and
+  reference screenshots, then redesign tokens, type, keys and layout; check
+  night readability and contrast
 - ☐ Carry the chosen concept into the Practice screens
 
 ## Design references

@@ -241,3 +241,9 @@ its own meter, accents, subdivision(s), gap click and timings; stages are
 uses a click on 2 and 4 until grooves exist). Routine gap click is a small set of
 choices rather than the full Click gap controls, to keep setup short. Library is
 stored on the device like presets.
+
+## D-029 · Look D (Console) is the default for now; redesign later (owner, 2026-11-27)
+Owner: "Preferred look is D for now. It needs to be overhauled eventually because
+it looks terrible." D becomes the default for new devices; A–C stay switchable.
+A proper visual redesign of D is on the backlog; it should start from the
+owner's specific complaints and reference images, not from more variants.
