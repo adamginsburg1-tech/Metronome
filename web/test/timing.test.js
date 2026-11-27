@@ -370,3 +370,14 @@ test("swing: windows stay exact and swing can change mid-bar", () => {
     assert.deepStrictEqual(withStep, [0, 0.335, 0.5, 0.835]);
   });
 }
+{
+  const T = require("../src/timing.js");
+  const test = require("node:test");
+  const assert = require("node:assert");
+  test("groove swing pairs restart each bar in 7/8 (same frames as the Swift core)", () => {
+    const plan = T.PlaybackPlan.click({ pattern: T.makePattern({ meter: T.makeMeter(7, 8), swing: 75 }), tempo: T.makeTempo(120, 1 / 8) });
+    const g = { stepsPerUnit: 2, lanes: { hat: [2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0] } };
+    const frames = plan.grooveEventsIn(0, 3.5 + 1e-6, g).map((e) => Math.round(e.time * 48000));
+    assert.deepStrictEqual(frames, [0, 36000, 48000, 84000, 96000, 132000, 144000, 168000]);
+  });
+}

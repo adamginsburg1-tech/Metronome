@@ -70,7 +70,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☐ **Owner:** run a real double-pedal session; check stage changes (exit gate)
 - ☑ Gap click: bars cycle or seeded random, lights option, presets, both cores (D-027)
 - ☑ Routine library: 5 starter routines, ladder and subdivision kinds, per-routine meter/accents/gaps, save/update/rename/delete (D-028)
-- ☐ Port `segmentSpan` to the Swift core
+- ☑ Port `segmentSpan` to the Swift core (`segmentFrames`, D-036)
 
 ## M1 — Quick Click (1–2 weeks)
 - ☐ TransportController state machine: idle → preparing → count-in → playing ↔
@@ -83,7 +83,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Dense Command Center default layout, Clean option in Settings (D-031)
 - ☑ Grooves: 13 starter grooves, step editor, user grooves, per-song mixer (D-033)
 - ☑ Swing steps refined to the drum-machine convention (D-034)
-- ☐ Port `grooveEventsIn` to the Swift core
+- ☑ Port `grooveEventsIn` to the Swift core (D-036)
 - ☐ Better kick sample (VCSL has only concert bass drums)
 
 ## Later (M2+)

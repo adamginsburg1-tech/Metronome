@@ -306,3 +306,10 @@ swings its eighths to the same share (0.67 at 67%), and a sixteenth groove swing
 sixteenths. Previously the pair followed the click, so a sixteenth groove under a
 quarter-note click swung its eighths and left its sixteenths even, and an eighth
 groove under a sixteenth click stayed straight. Clicks are unchanged.
+
+## D-036 — Swift core has grooves
+`PlaybackPlan.grooveHits(in:groove:)` (frames, exact rationals) mirrors the web
+core's `grooveEventsIn`: same grid, tempo following, count-in and gap silence, and
+the groove-owned swing pairing of D-035 (playhead lane ignored, pairs restart each
+bar). `segmentFrames(_:)` ports `segmentSpan`. Parity is checked by giving both
+test suites the same cases and frame values (48 kHz).

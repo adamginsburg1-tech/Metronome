@@ -346,3 +346,10 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
 - **Browser, groove Rock eighths at 120 BPM:** swing 67 hi-hats at 0, 335, 500, 835 ms;
   swing 50 at 0, 250, 500, 750 ms. Sixteenth groove at 67: 0, 167.5, 250, 417.5 ms.
 - **Node:** 45 tests pass.
+
+## Swift groove port (D-036)
+- **Swift:** 51 tests, 0 failures. New `GrooveTests` (10): 16th grid at tempo,
+  windowed queries never repeat or skip, count-in silent and offbeats on swung clicks,
+  mid-bar tempo change and gap bars, eighth/sixteenth swing under each click, playhead
+  lane ignored, pairs restart each bar in 7/8, segment frames.
+- **Node:** 46 tests pass; the 7/8 case gives the same frames as Swift.

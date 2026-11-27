@@ -458,3 +458,67 @@ private struct ResolvedSegment: Sendable {
         return k
     }
 }
+
+// MARK: Grooves
+
+extension PlaybackPlan {
+    /// Groove hits with `frames.lowerBound <= frame < frames.upperBound`, in order.
+    ///
+    /// Hits follow each segment's tempo exactly (including mid-bar tempo changes),
+    /// are silent in count-in and gap bars, and take the pattern's swing on the
+    /// groove's own pairs: only the second note of each pair moves; pairs restart
+    /// each bar (D-033, D-035). Adjacent windows never repeat or skip a hit.
+    public func grooveHits(in frames: Range<Int64>, groove: Groove) -> [GrooveHit] {
+        var out: [GrooveHit] = []
+        guard !frames.isEmpty else { return out }
+        let lanes = groove.lanes.filter { !$0.value.isEmpty }.sorted { $0.key < $1.key }
+        let pairSteps = Int64(groove.pairSteps)
+        let half = pairSteps / 2
+        for (index, item) in resolved.enumerated() {
+            guard item.segment.role == .music else { continue }
+            if let count = item.eventCount, item.exactPoint(ofEvent: count).roundedHalfUp <= frames.lowerBound { continue }
+            if item.anchor.roundedHalfUp >= frames.upperBound { break }
+            let pattern = item.segment.pattern
+            let grooveStep = pattern.meter.unit.wholeNotes / Rational(Int64(groove.stepsPerUnit))
+            let ratio = grooveStep / pattern.stepLength                  // groove steps → click steps
+            let barSteps = Rational(Int64(pattern.eventsPerBar)) * pattern.stepLength / grooveStep
+            guard barSteps.isInteger, barSteps.numerator > 0 else { continue }
+            let stepsPerBar = barSteps.numerator
+            let swing = Rational(Int64(pattern.swing - 50), 50)
+            func offset(_ j: Int64) -> Rational {
+                guard pattern.swing > 50 else { return Rational(j) }
+                let w = j % pairSteps, base = j - w
+                if w < half { return Rational(base) + Rational(w) * (.one + swing) }
+                return Rational(base) + Rational(half) * (.one + swing) + Rational(w - half) * (.one - swing)
+            }
+            let startGrid = Rational(Int64(item.startGrid))
+            let guess = ((Double(frames.lowerBound) - item.anchor.doubleValue) / item.step.doubleValue + Double(item.startGrid)) / ratio.doubleValue
+            var n: Int64 = guess.isFinite && guess > 4 ? Int64(min(guess, 9.0e15).rounded(.down)) - 4 : 0
+            while true {
+                let barRel = n / stepsPerBar, j = n % stepsPerBar
+                let u = (Rational(barRel * stepsPerBar) + offset(j)) * ratio   // click steps from the bar line
+                n += 1
+                if u < startGrid { continue }
+                let k = u - startGrid
+                if let count = item.eventCount, !(k < Rational(count)) { break }
+                let frame = (item.anchor + k * item.step).roundedHalfUp
+                if frame >= frames.upperBound { break }
+                if frame < frames.lowerBound { continue }
+                let bar = item.firstBar + Int(barRel)
+                if isGapBar(bar) { continue }
+                for (lane, steps) in lanes {
+                    let level = steps[Int(j) % steps.count]
+                    if level > 0 { out.append(GrooveHit(frame: frame, bar: bar, step: Int(j), lane: lane, level: level, segmentIndex: index)) }
+                }
+            }
+        }
+        return out
+    }
+
+    /// First and end frame of segment `index` (end is nil for an open-ended segment).
+    public func segmentFrames(_ index: Int) -> (start: Int64, end: Int64?)? {
+        guard resolved.indices.contains(index) else { return nil }
+        let item = resolved[index]
+        return (item.anchor.roundedHalfUp, item.eventCount.map { item.exactPoint(ofEvent: $0).roundedHalfUp })
+    }
+}
