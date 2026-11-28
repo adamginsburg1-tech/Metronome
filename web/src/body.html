@@ -1,6 +1,6 @@
 <div class="app">
   <header class="topbar">
-    <div class="brand"><strong>POCKET</strong><span>Web test · Quick Click</span></div>
+    <div class="brand"><h1 class="brand-name">POCKET</h1><span>Web test · Quick Click</span></div>
     <div class="topbar-end">
       <div class="workspace-switch" role="group" aria-label="Workspace">
         <button type="button" class="chip" id="ws-click" aria-pressed="true">Click</button>
@@ -86,8 +86,8 @@
       <div class="cc-transport">
         <button type="button" class="cc-key stop" id="cc-stop"><span aria-hidden="true">■</span>Stop</button>
         <button type="button" class="cc-key go" id="cc-play"><span aria-hidden="true">▶</span><span id="cc-play-label">Play</span></button>
-        <button type="button" class="cc-key nav" id="cc-prev"><span aria-hidden="true">⏮</span>Prev</button>
-        <button type="button" class="cc-key nav" id="cc-next"><span aria-hidden="true">⏭</span>Next</button>
+        <button type="button" class="cc-key nav" id="cc-prev" aria-label="Previous song"><span aria-hidden="true">⏮</span>Prev</button>
+        <button type="button" class="cc-key nav" id="cc-next" aria-label="Next song"><span aria-hidden="true">⏭</span>Next</button>
       </div>
       <div class="cc-toggles" role="group" aria-label="Quick switches">
         <button type="button" class="cc-toggle" id="cc-countin" aria-pressed="true">Count-in</button>
@@ -117,12 +117,12 @@
     <section class="panel cc-only cc-notes" id="cc-notes-panel" aria-label="Song notes and chart">
       <div class="cc-head-row">
         <div class="cc-tabs" role="tablist" aria-label="Song notes or chart">
-          <button type="button" role="tab" id="cc-tab-notes" aria-selected="true" aria-controls="cc-notes">Song notes</button>
+          <button type="button" role="tab" id="cc-tab-notes" aria-selected="true" aria-controls="cc-notes-panel">Song notes</button>
           <button type="button" role="tab" id="cc-tab-chart" aria-selected="false" aria-controls="cc-chart">Chart</button>
         </div>
         <span class="cc-label" id="cc-notes-state">Per song · saved automatically</span>
       </div>
-      <textarea class="cc-notes-text" id="cc-notes" role="tabpanel" aria-labelledby="cc-tab-notes" placeholder="Notes for this song: form, cues, endings, who counts it off…"></textarea>
+      <div class="cc-notes-panel" id="cc-notes-panel" role="tabpanel" aria-labelledby="cc-tab-notes"><textarea class="cc-notes-text" id="cc-notes" aria-label="Song notes" placeholder="Notes for this song: form, cues, endings, who counts it off…"></textarea></div>
       <div class="cc-chart" id="cc-chart" role="tabpanel" aria-labelledby="cc-tab-chart" hidden>
         <div class="chart-toolbar">
           <button type="button" class="btn small" id="chart-prev" aria-label="Previous page">‹ Page</button>
@@ -295,10 +295,10 @@
 
   <div class="scrim" id="settings-scrim" hidden></div>
   <section class="sheet" id="settings" role="dialog" aria-modal="false" aria-labelledby="settings-title" hidden>
-    <header class="sheet-head">
+    <div class="sheet-head">
       <h2 id="settings-title">Settings</h2>
       <button type="button" class="btn primary" id="close-settings">Done</button>
-    </header>
+    </div>
     <div class="tabs" role="tablist" aria-label="Settings sections">
       <button type="button" role="tab" id="tab-click" aria-controls="pane-click" aria-selected="true">Click</button>
       <button type="button" role="tab" id="tab-sound" aria-controls="pane-sound" aria-selected="false" tabindex="-1">Sound</button>
@@ -393,7 +393,7 @@
         <textarea class="notes" id="notes" placeholder="Anything you heard or saw: a flam, a stutter, a stop you didn't expect, how long it ran…"></textarea>
         <textarea class="report-fallback" id="report-fallback" readonly hidden aria-label="Report text"></textarea>
         <h3 class="subhead">Event log</h3>
-        <div class="log-wrap"><ol class="log" id="log" aria-live="off"></ol></div>
+        <div class="log-wrap" tabindex="0" role="region" aria-label="Event log"><ol class="log" id="log" aria-live="off"></ol></div>
       </div>
     </div>
   </section>

@@ -83,7 +83,7 @@ button { cursor: pointer; }
   .sheet { top: calc(env(safe-area-inset-top, 0px) + 24px); border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; padding-top: 0; }
 }
 .brand { display: flex; align-items: baseline; gap: 10px; }
-.brand strong { font-size: 20px; letter-spacing: 0.14em; font-weight: 800; }
+.brand strong, .brand .brand-name { margin: 0; font-family: inherit; line-height: inherit; color: inherit; font-size: 20px; letter-spacing: 0.14em; font-weight: 800; }
 .brand span { color: var(--muted); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
 .pill {
   display: inline-flex; align-items: center; gap: 8px;
@@ -419,8 +419,13 @@ button { cursor: pointer; }
   .nudge { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .beat { transition: none; }
-  .hiccup { transition: none; }
+  /* Beats and steps still light; nothing slides, fades or glides. */
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+/* Increase Contrast (iPadOS Accessibility › Display): solid edges, no dim text. */
+@media (prefers-contrast: more) {
+  html { --muted: var(--text) !important; }
+  .chip, .cc-key, .cc-toggle, .btn, .groove-cell { outline: 1px solid currentColor; outline-offset: -1px; }
 }
 
 /* ============ Concept B · Analog workshop ============
@@ -877,3 +882,6 @@ button { cursor: pointer; }
 .chart-view canvas { display: block; background: #fff; box-shadow: 0 2px 10px rgb(0 0 0 / 0.5); }
 .chart-empty { margin: auto; color: var(--muted); font: 600 14px var(--font-ui); text-align: center; padding: 24px; }
 #chart-fit[aria-pressed="true"] { color: var(--accent); }
+
+.cc-notes-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.cc-notes-panel[hidden] { display: none; }

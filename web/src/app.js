@@ -1048,6 +1048,8 @@
       b.innerHTML = "";
       b.append(document.createTextNode(item.label));
       if (item.note) { const s = document.createElement("small"); s.textContent = item.note; b.append(s); }
+      // Spoken name keeps label and note apart ("7/8, 2+2+3"), or uses a fuller name.
+      if (item.spoken || item.note) b.setAttribute("aria-label", item.spoken || `${item.label}, ${item.note}`);
       b.addEventListener("click", () => { onPick(item); renderSetup(); saveStore(); });
       el.append(b);
     }
@@ -1060,7 +1062,7 @@
       renderTempo(); queueChange("pattern"); renderBeats();
     });
     const subNames = { 1: "off", 2: "÷2", 3: "÷3", 4: "÷4", 5: "÷5", 6: "÷6", 7: "÷7" };
-    chip(["sub-chips", "sub-chips-sheet"], SUBDIVISIONS.map((n) => ({ id: n, label: n === 1 ? "Off" : subNames[n] })), (s) => s.id === settings.subdivision, (s) => {
+    chip(["sub-chips", "sub-chips-sheet"], SUBDIVISIONS.map((n) => ({ id: n, label: n === 1 ? "Off" : subNames[n], spoken: n === 1 ? "No subdivision" : `Subdivide by ${n}` })), (s) => s.id === settings.subdivision, (s) => {
       settings.subdivision = s.id; queueChange("pattern"); renderBeats();
     });
     const pickSwing = (x) => {
@@ -2566,7 +2568,7 @@
     chart.tab = tab;
     $("cc-tab-notes").setAttribute("aria-selected", String(tab === "notes"));
     $("cc-tab-chart").setAttribute("aria-selected", String(tab === "chart"));
-    $("cc-notes").hidden = tab !== "notes";
+    $("cc-notes-panel").hidden = tab !== "notes";
     $("cc-chart").hidden = tab !== "chart";
     $("cc-notes-panel").dataset.tab = tab;
     if (tab === "chart") showChart();
@@ -2971,7 +2973,8 @@
         b.className = "groove-cell" + (j % beatEvery === 0 ? " g-beat" : j % per === 0 ? " g-unit" : "");
         const lv = LEVEL_CHARS.indexOf(c);
         b.dataset.level = String(lv);
-        b.setAttribute("aria-label", `${lane.label} step ${j + 1}: ${["rest", "ghost", "hit", "accent"][lv]}`);
+        const where = beatEvery > 1 ? `beat ${Math.floor(j / beatEvery) + 1}, step ${(j % beatEvery) + 1}` : `beat ${j + 1}`;
+        b.setAttribute("aria-label", `${lane.label}, ${where}: ${["rest", "ghost", "hit", "accent"][lv]}`);
         b.addEventListener("click", () => cycleCell(lane.id, j));
         grooveCells[j].push(b);
         row.append(b);
@@ -3055,6 +3058,8 @@
       if (Number(pan.value) !== m.p) pan.value = String(m.p);
       strip.querySelector(".strip-out").textContent = String(m.v);
       strip.querySelector(".strip-pan-out").textContent = m.p === 0 ? "C" : m.p < 0 ? `L${-m.p * 2}` : `R${m.p * 2}`;
+      pan.setAttribute("aria-valuetext", m.p === 0 ? "Centre" : `${Math.abs(m.p * 2)}% ${m.p < 0 ? "left" : "right"}`);
+      vol.setAttribute("aria-valuetext", m.m ? `${m.v}, muted` : String(m.v));
     }
   }
 

@@ -389,3 +389,10 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   resume; stopped-by-system recovery; skipped clicks on screen vs background;
   tempo nudge clamping; pedal actions; tap tempo averaging, reset and clamping.
 - Not yet run on a device: needs the native app (Mac + Xcode).
+
+## Accessibility pass (D-041)
+- **axe-core 4.10:** 0 violations on dense, Groove, Practice and all five Settings tabs (was 5).
+- **Names:** checked the accessibility tree for every button, slider and tab.
+- **Zoom:** 1180 px layout at 125/150/200%: no horizontal overflow, no clipped text.
+- **Increase Contrast + Reduce Motion:** emulated; screenshot checked.
+- **Node:** 46 tests pass.

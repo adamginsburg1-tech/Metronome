@@ -367,3 +367,15 @@ clicks it is handed and reports what the system did:
   `interrupted`. Message copy lives in `TransportNotice` so both apps say the same.
 - Pedals: `perform(_ MIDIAction)` handles play/pause, stop, tempo ±1, count-in,
   panic restart; other actions return nil for the app. `TapTempo` matches the web.
+
+## D-041 — Accessibility pass (web test)
+axe-core 4.10 across the dense layout, Groove, Practice and every Settings tab:
+contrast passes; fixed the five findings (song-notes tabpanel on a textarea,
+missing level-one heading, a second banner landmark in the Settings sheet,
+keyboard access to the scrolling event log). VoiceOver names: chips with a note
+read "7/8, 2+2+3" / "Rock eighths, 4/4" / "Kit, synthesized" instead of running
+together; subdivision chips read "Subdivide by 3" / "No subdivision"; groove steps
+read "Kick, beat 2, step 3: accent"; pan sliders read "30% left" / "Centre",
+volume says when muted; Prev/Next say "Previous song" / "Next song".
+Reduce Motion now removes every transition; Increase Contrast brightens muted text
+and outlines keys. Page zoom at 125%, 150% and 200% shows no overflow or clipping.
