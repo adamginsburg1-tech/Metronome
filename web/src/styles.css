@@ -927,3 +927,56 @@ button { cursor: pointer; }
 }
 [data-layout="dense"] .practice-summary { gap: 10px; padding: 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-low); }
 [data-layout="dense"] .practice-summary .actions .btn { min-height: 52px; padding: 0 20px; }
+
+/* iPhone layout (D-044): portrait phones get a tab bar (Click · Songs · Groove ·
+   Practice) and an always-reachable Start/Stop bar instead of one long scroll. */
+.phone-tabs { display: none; }
+@media (max-width: 600px) {
+  :root[data-layout="dense"] { --transport-h: 136px; }
+  :root[data-layout="dense"][data-workspace="practice"] { --transport-h: 136px; }
+  [data-layout="dense"] .app { padding-inline: 10px; }
+  [data-layout="dense"] .topbar { flex-wrap: nowrap; gap: 8px; padding-block: 8px; }
+  [data-layout="dense"] .brand span, [data-layout="dense"] .workspace-switch { display: none; }
+  [data-layout="dense"] .topbar-end { gap: 8px; }
+  [data-layout="dense"] .settings-btn { min-height: 44px; padding: 0 12px; }
+
+  /* Start / Pause / Stop always at the thumb, tabs below */
+  [data-layout="dense"] .status-strip { display: none; }
+  [data-layout="dense"] .transport { padding: 8px 10px calc(4px + env(safe-area-inset-bottom, 0px)); }
+  [data-layout="dense"] .transport-inner { display: flex; gap: 8px; }
+  [data-layout="dense"] .start { min-height: 56px; font-size: 18px; }
+  [data-layout="dense"] .transport .secondary { min-height: 56px; min-width: 88px; padding: 0 12px; font-size: 15px; }
+  [data-layout="dense"] .position { min-width: 7ch; font-size: 12px; }
+  [data-layout="dense"] .position strong { font-size: 16px; }
+  [data-layout="dense"] .phone-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 6px; }
+  .phone-tabs button {
+    min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    border: 0; border-radius: 6px; background: transparent; color: var(--muted);
+    font: 700 11px var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .phone-tabs svg { width: 22px; height: 22px; }
+  .phone-tabs button[aria-current="page"] { color: var(--active); background: color-mix(in srgb, var(--active) 12%, transparent); }
+  .phone-tabs button:disabled { opacity: 0.35; }
+
+  /* One tab at a time */
+  [data-layout="dense"][data-phone-tab="now"] :is(.cc-setlist, .cc-notes, .groove) { display: none !important; }
+  [data-layout="dense"][data-phone-tab="songs"] :is(.play, .cc-keys, .quick, .groove) { display: none !important; }
+  [data-layout="dense"][data-phone-tab="groove"] :is(.play, .cc-keys, .quick, .cc-setlist, .cc-notes) { display: none !important; }
+  :root[data-layout="dense"] .layout { gap: 8px; }
+
+  /* Click tab: display full width (the knob needs room; −5…+5, Tap and the
+     keypad set the tempo), Play/Stop live in the bottom bar */
+  [data-layout="dense"] .dial-wrap { display: none !important; }
+  [data-layout="dense"] .play { grid-template-columns: minmax(0, 1fr); }
+  [data-layout="dense"] .bpm { font-size: 72px; }
+  [data-layout="dense"] #cc-stop, [data-layout="dense"] #cc-play { display: none; }
+  [data-layout="dense"] .cc-transport { grid-template-columns: 1fr 1fr; }
+  [data-layout="dense"] .cc-key { min-height: 52px; flex-direction: row; gap: 8px; }
+  [data-layout="dense"] .cc-songs { max-height: none; }
+
+  /* Groove: lane names stay put while the steps scroll sideways */
+  .groove-row { grid-template-columns: 76px repeat(var(--steps), minmax(28px, 1fr)); min-width: calc(76px + var(--steps) * 31px); }
+  .groove-lane, .groove-count > span:first-child { position: sticky; left: 0; z-index: 1; box-shadow: -11px 0 0 0 var(--lcd, var(--canvas)), 3px 0 0 0 var(--lcd, var(--canvas)); }
+  .groove-lane { font-size: 11px; padding: 0 6px; }
+  .groove-count > span:first-child { background: var(--lcd, var(--canvas)); }
+}

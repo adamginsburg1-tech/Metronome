@@ -405,3 +405,18 @@ The Clean layout is unchanged. Fixed on the way: Now playing's display text leak
 into Practice in the dense layout (its display rule beat the hide rule), and the
 accessibility pass had given the song-notes wrapper an id already used by the
 Notes panel (now `cc-notes-pane`).
+
+## D-044 — iPhone layout
+Portrait phones (≤ 600 px wide) in the Command Center layout no longer get one
+~4,000 px column. Instead (HIG › Tab bars):
+- A bottom tab bar: **Click** (Now playing, Prev/Next, switches, counters, click
+  engine), **Songs** (setlist, notes/chart), **Groove**, **Practice** (the Practice
+  workspace). The tab is remembered. While playing or paused, the other
+  workspace's tab is locked, like the workspace switch.
+- Start / Pause / Stop with bar and time sits above the tabs on every tab, so the
+  transport is always under the thumb; the Play/Stop keys in the panel are hidden
+  (Prev/Next stay).
+- Slim top bar (POCKET, status, Settings); the tempo display goes full width and
+  the knob is hidden (−5…+5, Tap and the number pad set the tempo).
+- Groove grid scrolls sideways with the lane names pinned.
+Landscape phones keep the two-column layout; the Clean layout is unchanged.

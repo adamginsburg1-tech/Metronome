@@ -49,6 +49,8 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
   night readability and contrast
 - ☑ Carry the Command Center look into the Practice screens (D-043)
 
+- ☑ iPhone layout: tab bar, always-reachable Start/Stop, slim top bar (D-044). To try on a phone; landscape phone layout still open
+
 ## Design references
 - ☑ Apple HIG review and fixes (`Docs/HIG_REVIEW.md`)
 - ☐ Mobbin (needs a paid plan) or owner screenshots for metronome / interval-timer patterns

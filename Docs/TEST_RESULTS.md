@@ -415,3 +415,11 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
 - **Charts:** full chart script re-run after the id fix: page turns, per-song
   charts, reload, remove all pass.
 - **Node:** 48 tests pass.
+
+## iPhone layout (D-044)
+- **Browser (iPhone 15 emulation, 393 × 852):** page height Click 1,447 px, Songs
+  872, Groove 2,193, Practice 1,790 (was 3,966 for everything); no sideways
+  overflow; Start → Count-in → Stop from the bottom bar; Practice tab locked while
+  playing; tab survives reload; lane names stay pinned while the grid scrolls.
+- **iPad width (1180 px):** tab bar hidden, layout unchanged.
+- **axe-core at phone width:** 0 violations. **Node:** 48 tests pass.

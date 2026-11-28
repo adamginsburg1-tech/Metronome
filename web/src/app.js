@@ -119,7 +119,7 @@
         countInMode: settings.countInMode, countInBars: settings.countInBars, tempoChange: settings.tempoChange, tempoChangeV: 2, sound: settings.sound, volume: settings.volume,
         accentStyle: settings.accentStyle, countInSound: settings.countInSound, subVolume: settings.subVolume,
         awake: settings.awake, routeStop: settings.routeStop, playOnSilent: settings.playOnSilent, concept: settings.concept, settingsTab: settings.settingsTab,
-        workspace: settings.workspace, routines, routineId, routineWorking: routineCfg, sessions, presets, presetId: settings.presetId,
+        workspace: settings.workspace, phoneTab: settings.phoneTab, routines, routineId, routineWorking: routineCfg, sessions, presets, presetId: settings.presetId,
         gapMode: settings.gapMode, gapPlay: settings.gapPlay, gapMute: settings.gapMute, gapPercent: settings.gapPercent, gapSeed: settings.gapSeed, gapHideLights: settings.gapHideLights, swing: settings.swing, layout: settings.layout, tempoLock: settings.tempoLock, presetNotes,
         grooveOn: settings.grooveOn, grooveId: settings.grooveId, kickVoice: settings.kickVoice, grooveLanes: settings.grooveLanes, mix: settings.mix, userGrooves, answers, notes: $("notes").value,
       }));
@@ -159,6 +159,8 @@
     concept: CONCEPTS.some((c) => c.id === stored.concept) ? stored.concept : "d",
     settingsTab: ["click", "sound", "look", "ipad", "test"].includes(stored.settingsTab) ? stored.settingsTab : "click",
     workspace: stored.workspace === "practice" ? "practice" : "click",
+    // iPhone layout: which Click-workspace tab is showing (D-044).
+    phoneTab: ["now", "songs", "groove"].includes(stored.phoneTab) ? stored.phoneTab : "now",
     // Gap click (plan §07): off / cycle (play N bars, M silent) / random (seeded).
     gapMode: ["off", "cycle", "random"].includes(stored.gapMode) ? stored.gapMode : "off",
     gapPlay: Number.isInteger(stored.gapPlay) ? stored.gapPlay : 2,
@@ -580,6 +582,7 @@
     primary.textContent = running ? "Stop" : s === "paused" ? "Resume" : settings.workspace === "practice" ? "Start routine" : "Start";
     const locked = running || s === "paused";
     for (const id of ["ws-click", "ws-practice", "rail-click", "rail-practice"]) $(id).disabled = locked && !$(id).matches("[aria-pressed='true'], [aria-current='page']");
+    renderPhoneTabs();
     const secondary = $("pause");
     secondary.hidden = !(running || s === "paused");
     secondary.textContent = s === "paused" ? "Stop" : "Pause";
@@ -1970,6 +1973,36 @@
     setStatus(eng.status);
     renderPractice();
     saveStore();
+  }
+
+  // iPhone layout (D-044): a tab bar replaces the long scroll. Click, Songs and
+  // Groove are views of the Click workspace; Practice is the Practice workspace.
+  // While something plays or is paused, the other workspace's tab is locked,
+  // like the workspace switch.
+  function renderPhoneTabs() {
+    const ws = settings.workspace;
+    const active = ws === "practice" ? "practice" : settings.phoneTab;
+    document.documentElement.dataset.phoneTab = active;
+    const locked = isRunning() || eng.status === "paused";
+    for (const b of document.querySelectorAll("#phone-tabs button")) {
+      const tab = b.dataset.tab;
+      if (tab === active) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+      b.disabled = locked && (tab === "practice") !== (ws === "practice");
+    }
+  }
+  for (const b of document.querySelectorAll("#phone-tabs button")) {
+    b.addEventListener("click", () => {
+      const tab = b.dataset.tab;
+      if (tab === "practice") { setWorkspace("practice"); }
+      else {
+        if (settings.workspace !== "click") setWorkspace("click");
+        if (settings.workspace !== "click") return;
+        settings.phoneTab = tab;
+        saveStore();
+      }
+      renderPhoneTabs();
+      window.scrollTo({ top: 0 });
+    });
   }
   $("ws-click").addEventListener("click", () => setWorkspace("click"));
   $("ws-practice").addEventListener("click", () => setWorkspace("practice"));
