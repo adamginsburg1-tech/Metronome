@@ -47,7 +47,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☐ **Visual redesign of D** (owner: "looks terrible"): gather specific complaints and
   reference screenshots, then redesign tokens, type, keys and layout; check
   night readability and contrast
-- ☐ Carry the chosen concept into the Practice screens
+- ☑ Carry the Command Center look into the Practice screens (D-043)
 
 ## Design references
 - ☑ Apple HIG review and fixes (`Docs/HIG_REVIEW.md`)

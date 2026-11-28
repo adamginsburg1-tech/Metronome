@@ -406,3 +406,12 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   LCD shows it; M4A accent added; second sound added; plays; survives reload;
   two-tap delete falls back to Wood block; no page errors; no overflow at 390 px.
 - **Still to try on the iPad:** picking from Files and Safari's decoding of M4A/AIFF.
+
+## Practice in the Command Center layout (D-043)
+- **Browser:** setup, running routine and summary screenshots checked at 1180 px;
+  no overflow at 390 px; Clean layout unchanged; no page errors.
+- **axe-core:** 0 violations, now including the Practice view (the earlier run
+  clicked a hidden button and didn't reach it).
+- **Charts:** full chart script re-run after the id fix: page turns, per-song
+  charts, reload, remove all pass.
+- **Node:** 48 tests pass.

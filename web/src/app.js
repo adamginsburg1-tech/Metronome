@@ -2757,7 +2757,7 @@
     chart.tab = tab;
     $("cc-tab-notes").setAttribute("aria-selected", String(tab === "notes"));
     $("cc-tab-chart").setAttribute("aria-selected", String(tab === "chart"));
-    $("cc-notes-panel").hidden = tab !== "notes";
+    $("cc-notes-pane").hidden = tab !== "notes";
     $("cc-chart").hidden = tab !== "chart";
     $("cc-notes-panel").dataset.tab = tab;
     if (tab === "chart") showChart();

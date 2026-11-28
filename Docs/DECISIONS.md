@@ -394,3 +394,14 @@ samples — `prepareSample` moved from `tools/build-samples.mjs` into `sounds.js
 - Delete takes two taps; songs using a deleted sound fall back to Wood block.
 - Messages for unreadable files, silent recordings, oversize files and the limit.
 Native: the same flow with the document picker and AVAudioFile.
+
+## D-043 — Practice in the Command Center layout
+In the dense layout, Practice now matches the Command Center: routine library and
+"This routine" side by side in boxed panels with the blue section labels; the
+stage preview on the green display; while running, phase, tempo, subdivision,
+countdown and stage line share one green display like Now playing, with large
+Repeat / Step down keys; the session summary and history are boxed the same way.
+The Clean layout is unchanged. Fixed on the way: Now playing's display text leaked
+into Practice in the dense layout (its display rule beat the hide rule), and the
+accessibility pass had given the song-notes wrapper an id already used by the
+Notes panel (now `cc-notes-pane`).

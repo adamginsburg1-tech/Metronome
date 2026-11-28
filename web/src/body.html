@@ -117,12 +117,12 @@
     <section class="panel cc-only cc-notes" id="cc-notes-panel" aria-label="Song notes and chart">
       <div class="cc-head-row">
         <div class="cc-tabs" role="tablist" aria-label="Song notes or chart">
-          <button type="button" role="tab" id="cc-tab-notes" aria-selected="true" aria-controls="cc-notes-panel">Song notes</button>
+          <button type="button" role="tab" id="cc-tab-notes" aria-selected="true" aria-controls="cc-notes-pane">Song notes</button>
           <button type="button" role="tab" id="cc-tab-chart" aria-selected="false" aria-controls="cc-chart">Chart</button>
         </div>
         <span class="cc-label" id="cc-notes-state">Per song · saved automatically</span>
       </div>
-      <div class="cc-notes-panel" id="cc-notes-panel" role="tabpanel" aria-labelledby="cc-tab-notes"><textarea class="cc-notes-text" id="cc-notes" aria-label="Song notes" placeholder="Notes for this song: form, cues, endings, who counts it off…"></textarea></div>
+      <div class="cc-notes-pane" id="cc-notes-pane" role="tabpanel" aria-labelledby="cc-tab-notes"><textarea class="cc-notes-text" id="cc-notes" aria-label="Song notes" placeholder="Notes for this song: form, cues, endings, who counts it off…"></textarea></div>
       <div class="cc-chart" id="cc-chart" role="tabpanel" aria-labelledby="cc-tab-chart" hidden>
         <div class="chart-toolbar">
           <button type="button" class="btn small" id="chart-prev" aria-label="Previous page">‹ Page</button>
@@ -173,6 +173,7 @@
 
     <section class="panel practice" id="practice-view" aria-label="Practice">
       <div class="practice-setup" id="practice-setup" data-kind="ladder">
+        <div class="rt-col rt-col-library">
         <div class="rt-library-head"><h2>Routines</h2><span class="preset-edited" id="rt-edited" hidden>· edited</span></div>
         <ol class="preset-list rt-routines" id="rt-routines"></ol>
         <div class="rt-library-actions" id="rt-library-actions">
@@ -189,7 +190,9 @@
             <button type="submit" class="btn primary" id="rt-name-confirm">Save</button>
           </div>
         </form>
+        </div>
 
+        <div class="rt-col rt-col-edit">
         <h3 class="subhead">This routine</h3>
         <div class="form-grid">
           <div class="num-field"><span id="rt-start-label">Start tempo</span><button type="button" class="num-button" id="rt-start">130</button></div>
@@ -204,14 +207,17 @@
         <fieldset class="field"><legend>Gap click</legend><div class="chips" id="rt-gap-chips"></div></fieldset>
         <p class="hint">One bar of count-in before the first stage and at the end of every rest. Uses the sound from Settings.</p>
         <p class="rt-preview" id="rt-preview"></p>
+        </div>
       </div>
 
       <div class="practice-live" id="practice-live" hidden>
+        <div class="rt-lcd">
         <div class="rt-phase" id="rt-phase" data-phase="countIn">Count-in</div>
         <div class="rt-big"><span class="rt-tempo" id="rt-tempo">130</span><span class="bpm-unit">BPM</span></div>
         <p class="rt-sub" id="rt-sub"></p>
         <div class="rt-time" id="rt-time" aria-live="off">0:30</div>
         <p class="rt-stage" id="rt-stage"></p>
+        </div>
         <div class="rt-actions">
           <button type="button" class="btn" id="rt-repeat">Repeat this stage</button>
           <button type="button" class="btn" id="rt-down">Step down</button>
