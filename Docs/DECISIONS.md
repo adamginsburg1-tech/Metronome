@@ -344,3 +344,26 @@ Core MIDI bytes in and act on the result:
   (120 ms default); channel filter (omni or 1–16); learn binds the next press and
   moves a pedal off any other action; clear one or all; Codable for per-device saving.
 - `MIDIDeviceMonitor`: connect/disconnect events with on-screen copy.
+
+## D-040 — Transport controller (platform-independent)
+`Domain/Transport/TransportController.swift` is the plan §06 transport contract as a
+pure value type, so the native app's audio layer only starts the engine, plays the
+clicks it is handed and reports what the system did:
+- States: idle → preparing → count-in → playing ↔ paused → idle; `interrupted`
+  ("Stopped by the system") leaves only by Start or Dismiss.
+- Commands return effects (`startAudio`, `silence`, `releaseAudio`); every start,
+  pause and stop bumps a generation ID, and each `ClickBatch` carries one, so the
+  audio layer drops stale clicks (D-007).
+- Changes while playing follow the web test: tempo lands on the next unscheduled
+  click (or next beat/bar, per setting) and several changes combine; accent-only
+  changes land on the next click; meter/subdivision on the bar line; the count-in
+  keeps its own pattern. `queued` and `landed` drive "Next beat: …" / "Now …".
+- Count-in modes every start / first start only / off, 1–2 bars. Pause keeps the
+  bar count and elapsed time; Resume continues from the next bar.
+- System: interruptions (audio taken over, output changed, background) pause with
+  the UX message and never resume; skipped clicks pause in the background and show
+  a non-blocking "Timing hiccup" on screen; a failed start returns to Ready (or
+  stays Paused for a failed Resume) with "No sound yet"; a dead engine is
+  `interrupted`. Message copy lives in `TransportNotice` so both apps say the same.
+- Pedals: `perform(_ MIDIAction)` handles play/pause, stop, tempo ±1, count-in,
+  panic restart; other actions return nil for the app. `TapTempo` matches the web.

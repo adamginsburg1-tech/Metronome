@@ -376,3 +376,16 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
   (running status, real-time interleaved, SysEx, packet boundaries), learn/rebind/
   clear, CC press once until release, debounce and channel filter, mapping
   save/load, device connect/disconnect messages.
+
+## Transport controller (D-040)
+- **Swift:** 79 tests, 0 failures, no build warnings. New `TransportTests` (21):
+  count-in then playing with exact frames; chunked scheduling never repeats or
+  skips; pause/resume continues from the next bar and keeps elapsed time without
+  pauses or count-ins; first-start-only and off count-ins; stop resets; tempo
+  change lands on the next unscheduled click, combines, never moves scheduled
+  clicks, then shows as landed for one bar; next-bar tempo; meter change on the
+  bar line and accent change mid-bar; pattern change during count-in; interruptions
+  pause with the message and are ignored while paused; failed start and failed
+  resume; stopped-by-system recovery; skipped clicks on screen vs background;
+  tempo nudge clamping; pedal actions; tap tempo averaging, reset and clamping.
+- Not yet run on a device: needs the native app (Mac + Xcode).

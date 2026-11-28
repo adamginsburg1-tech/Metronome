@@ -73,8 +73,9 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Port `segmentSpan` to the Swift core (`segmentFrames`, D-036)
 
 ## M1 — Quick Click (1–2 weeks)
-- ☐ TransportController state machine: idle → preparing → count-in → playing ↔
-  paused → stopped; error/interrupted require deliberate recovery
+- ☑ TransportController state machine in the Swift core: idle → preparing → count-in →
+  playing ↔ paused; interrupted needs a deliberate Start; queued changes, system
+  events, pedal actions, tap tempo (D-040). Native: wire it to AVAudioEngine
 - ☐ Tempo controls −5/−1/field/+1/+5, tap tempo; "next bar" queued display
 - ☐ Meter/grouping/subdivision/accent editing; sound + master volume; visual pulse
 - ☑ Presets (save as new / update / rename / delete, starter presets) and
