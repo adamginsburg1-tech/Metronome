@@ -61,7 +61,7 @@ Exit gate: real iPad emits a stable 4/4 click; design direction chosen.
 - ☑ Sample engine + CC0 starter set: 7 recorded kits from VCSL, round robin,
   per-level takes, processing tool, credits (D-023)
 - ☐ **Owner:** audition recorded kits; record your own instruments if wanted
-- ☐ On-device importer for your own WAVs
+- ☑ On-device importer for your own sounds: beat + optional accent, same clean-up as the kits (D-042)
 - ☐ M3: mixer and groove layers (shaker, tambourine, kick/snare/hats) using the same engine
 
 ## M2 — Practice (started early in the web test)

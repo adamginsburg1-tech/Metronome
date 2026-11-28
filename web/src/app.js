@@ -62,6 +62,10 @@
   const SAMPLE_KITS = (window.POCKET_SAMPLE_KITS || []).map((k) => ({ ...k, recorded: true }));
   const SYNTH_KITS = SND.KITS.map((k) => ({ ...k, recorded: false }));
   const SOUNDS = SAMPLE_KITS.concat(SYNTH_KITS);
+  /** Sounds you added (Settings › Sound › Your sounds), loaded from IndexedDB after start-up. */
+  let userKits = [];
+  const allSounds = () => SOUNDS.concat(userKits);
+  const isUserSoundId = (id) => typeof id === "string" && id.startsWith("user-");
   const CYCLE = [L.downbeat, L.group, L.normal, L.muted];
 
   const CHECKS = [
@@ -140,7 +144,8 @@
     // "beat" was the previous default; move it to the new default once.
     tempoChange: stored.tempoChangeV === 2 && TEMPO_CHANGE.some((t) => t.id === stored.tempoChange) ? stored.tempoChange
       : stored.tempoChange === "bar" ? "bar" : "now",
-    sound: SOUNDS.some((s) => s.id === stored.sound) ? stored.sound : "wood",
+    // A sound you added loads a moment later (IndexedDB); keep its id until then.
+    sound: SOUNDS.some((s) => s.id === stored.sound) || isUserSoundId(stored.sound) ? stored.sound : "wood",
     accentStyle: SND.ACCENT_STYLES.some((a) => a.id === stored.accentStyle) ? stored.accentStyle : "pitch",
     countInSound: SND.COUNT_IN_SOUNDS.some((c) => c.id === stored.countInSound) ? stored.countInSound : "sticks",
     subVolume: Number.isFinite(stored.subVolume) ? stored.subVolume : 55,
@@ -308,11 +313,11 @@
   function kitBuffers(id) {
     if (!eng.buffers[id]) {
       const ctx = eng.ctx;
-      const meta = SOUNDS.find((k) => k.id === id) || SOUNDS[0];
+      const meta = allSounds().find((k) => k.id === id) || SOUNDS.find((k) => k.id === "wood") || SOUNDS[0];
       const opts = { accentStyle: settings.accentStyle, countIn: settings.countInSound };
       let voices, sr;
       if (meta.recorded) {
-        if (!decodedSamples[meta.id]) {
+        if (!decodedSamples[meta.id] && meta.levels) {
           decodedSamples[meta.id] = Object.fromEntries(Object.entries(meta.levels).map(([lv, takes]) => [lv, takes.map((b64) => SND.decodeWav(SND.fromBase64(b64)))]));
         }
         voices = SND.buildSampleKit(decodedSamples[meta.id], opts);
@@ -1105,6 +1110,8 @@
     };
     chip("sound-chips", SAMPLE_KITS, (s) => s.id === settings.sound, pickSound);
     chip("synth-chips", SYNTH_KITS, (s) => s.id === settings.sound, pickSound);
+    chip("user-sound-chips", userKits, (s) => s.id === settings.sound, pickSound);
+    renderUserSoundActions();
     chip("accent-style-chips", SND.ACCENT_STYLES, (a) => a.id === settings.accentStyle, (a) => {
       if (a.id === settings.accentStyle) return;
       settings.accentStyle = a.id;
@@ -1987,7 +1994,7 @@
     $("lcd-meter").textContent = `${meter.num}/${meter.den}${grouping} time`;
     const countIn = settings.countInMode === "off" ? "No count-in" : `Count-in ${settings.countInBars} bar${settings.countInBars > 1 ? "s" : ""}`;
     const swing = pattern.swingOffset ? ` · swing ${pattern.swing}%` : "";
-    $("lcd-pattern").textContent = `${subdivisionName(pattern)}${swing} · ${(SOUNDS.find((k) => k.id === settings.sound) || SOUNDS[0]).label} · ${countIn}`;
+    $("lcd-pattern").textContent = `${subdivisionName(pattern)}${swing} · ${(allSounds().find((k) => k.id === settings.sound) || SOUNDS[0]).label} · ${countIn}`;
     const bar = eng.currentBar === null ? null : eng.currentBar + eng.barOffset + 1;
     $("lcd-state").textContent = {
       idle: "Ready at bar 1",
@@ -2051,12 +2058,12 @@
   const currentPreset = () => presets.find((p) => p.id === settings.presetId) || null;
   function presetSummary(p) {
     const m = METERS.find((x) => x.id === p.meterId);
-    const kit = SOUNDS.find((k) => k.id === p.sound);
+    const kit = allSounds().find((k) => k.id === p.sound);
     const gm = presetValue(p, "gapMode");
     const gaps = gm === "cycle" ? ` · gaps ${presetValue(p, "gapPlay")}/${presetValue(p, "gapMute")}` : gm === "random" ? ` · gaps ${presetValue(p, "gapPercent")}%` : "";
     const sw = presetValue(p, "swing");
     const swing = sw > 50 && T.SWING_SUBDIVISIONS.includes(p.subdivision) ? ` swing ${sw}%` : "";
-    return `${fmtBpm(p.bpm)} · ${m ? (m.label || m.id) + (m.note ? ` ${m.note}` : "") : p.meterId}${p.subdivision > 1 ? ` ÷${p.subdivision}` : ""}${swing} · ${kit ? kit.label : p.sound}${gaps}`;
+    return `${fmtBpm(p.bpm)} · ${m ? (m.label || m.id) + (m.note ? ` ${m.note}` : "") : p.meterId}${p.subdivision > 1 ? ` ÷${p.subdivision}` : ""}${swing} · ${kit ? kit.label : isUserSoundId(p.sound) ? "Wood block" : p.sound}${gaps}`;
   }
   function renderPresetCurrent() {
     const p = currentPreset();
@@ -2095,7 +2102,7 @@
       b.type = "button";
       b.className = "cc-song";
       b.setAttribute("aria-current", String(p.id === settings.presetId));
-      const kit = SOUNDS.find((k) => k.id === presetValue(p, "sound"));
+      const kit = allSounds().find((k) => k.id === presetValue(p, "sound"));
       b.innerHTML = "";
       for (const [cls, text] of [["no", String(i + 1).padStart(2, "0")], ["name", p.name], ["bpm-col", `${fmtBpm(p.bpm)} BPM`], ["meta", songMeta(p)]]) {
         const span = document.createElement("span"); span.className = cls; span.textContent = text; b.append(span);
@@ -2232,6 +2239,8 @@
       if (v !== undefined) settings[k] = v && typeof v === "object" ? JSON.parse(JSON.stringify(v)) : v;
     }
     if (!settings.mix) settings.mix = defaultMix();
+    // A song can name a sound you have since deleted (or that isn't on this device).
+    if (!allSounds().some((k) => k.id === settings.sound)) settings.sound = "wood";
     settings.presetId = p.id;
     log(`Preset loaded: ${p.name}`);
     renderTempo();
@@ -2491,6 +2500,186 @@
   });
 
 
+
+  // ---------- your sounds (imported recordings) ----------
+  // A file from the Files app becomes a click sound: the same clean-up as the
+  // built-in samples (onset first, tail trimmed, loudness matched), stored on
+  // this device in IndexedDB. One file is the beat; an optional second file is
+  // the accent (bar one and group accents). Subdivisions use the beat, quieter.
+  const USER_SOUND_MAX_BYTES = 20 * 1024 * 1024;
+  const USER_SOUND_MAX = 12;
+  const USER_SOUND_MAX_SECONDS = 1.0;
+  let soundDb = null;
+  const memSounds = {};
+  let userSoundTarget = "new"; // what the file picker is for: "new" or "accent"
+  let userSoundDeleteArmed = null;
+  function openSoundDb() {
+    if (soundDb) return soundDb;
+    soundDb = new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error("no IndexedDB")); return; }
+      const req = indexedDB.open("pocket-sounds", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("sounds");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    soundDb.catch(() => {});
+    return soundDb;
+  }
+  async function soundStore(mode, fn) {
+    const db = await openSoundDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("sounds", mode);
+      const req = fn(tx.objectStore("sounds"));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function soundAll() {
+    try { return (await soundStore("readonly", (st) => st.getAll())) || []; } catch { return Object.values(memSounds); }
+  }
+  async function soundPut(rec) {
+    try { await soundStore("readwrite", (st) => st.put(rec, rec.id)); return true; } catch { memSounds[rec.id] = rec; return false; }
+  }
+  async function soundDelete(id) {
+    delete memSounds[id];
+    try { await soundStore("readwrite", (st) => st.delete(id)); } catch { /* nothing stored */ }
+  }
+
+  /** Stored record → kit entry plus the takes `kitBuffers` builds voices from. */
+  function useUserSound(rec) {
+    const beat = { sr: rec.sr, data: rec.beat };
+    const accent = rec.accent ? { sr: rec.sr, data: rec.accent } : beat;
+    decodedSamples[rec.id] = { downbeat: [accent], group: [accent], normal: [beat], sub: [beat] };
+    if (eng.buffers) delete eng.buffers[rec.id];
+    const meta = { id: rec.id, label: rec.label, note: rec.accent ? "beat + accent" : "your recording", recorded: true, user: true, added: rec.added };
+    userKits = userKits.filter((k) => k.id !== rec.id).concat(meta).sort((a, b) => a.added - b.added);
+  }
+  async function loadUserSounds() {
+    for (const rec of await soundAll()) {
+      if (rec && rec.beat && rec.sr) useUserSound(rec);
+    }
+    if (isUserSoundId(settings.sound) && !userKits.some((k) => k.id === settings.sound)) {
+      log("A sound you added is no longer on this device; using Wood block.", "warn");
+      settings.sound = "wood";
+      saveStore();
+    }
+    rebuildBuffers();
+    renderSetup();
+    renderLcd();
+  }
+
+  /** Any audio file the browser can decode → mono samples. WAV also decodes without Web Audio. */
+  async function decodeAudioFile(bytes) {
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (Offline) {
+      try {
+        const ctx = new Offline(1, 1, 48000);
+        const buf = await new Promise((resolve, reject) => {
+          const p = ctx.decodeAudioData(bytes.slice(0), resolve, reject);
+          if (p && p.then) p.then(resolve, reject);
+        });
+        const data = new Float32Array(buf.length);
+        for (let c = 0; c < buf.numberOfChannels; c++) {
+          const ch = buf.getChannelData(c);
+          for (let i = 0; i < ch.length; i++) data[i] += ch[i] / buf.numberOfChannels;
+        }
+        return { sr: buf.sampleRate, data };
+      } catch { /* try the WAV reader */ }
+    }
+    return SND.decodeWav(new Uint8Array(bytes));
+  }
+  function userSoundStatus(text, isError = false) {
+    const el = $("user-sound-status");
+    el.textContent = text;
+    el.classList.toggle("error", isError);
+  }
+  async function importUserSound(file) {
+    if (file.size > USER_SOUND_MAX_BYTES) { userSoundStatus("That file is over 20 MB. Pick a short recording of a single hit."); return; }
+    const target = userSoundTarget;
+    const editing = target === "accent" ? userKits.find((k) => k.id === settings.sound) : null;
+    if (target === "accent" && !editing) return;
+    if (target === "new" && userKits.length >= USER_SOUND_MAX) { userSoundStatus(`You can keep ${USER_SOUND_MAX} sounds. Delete one to add another.`, true); return; }
+    userSoundStatus("Reading the file…");
+    let clip;
+    try {
+      const raw = await decodeAudioFile(await file.arrayBuffer());
+      if (!raw.data.length) throw new Error("empty");
+      clip = SND.prepareSample(raw, USER_SOUND_MAX_SECONDS);
+      if (clip.rawPeak < 0.001) { userSoundStatus("That recording is silent. Pick a file with a clear hit.", true); return; }
+      clip.sr = raw.sr;
+    } catch {
+      userSoundStatus("POCKET couldn't read that file. Use a WAV, AIFF, MP3 or M4A recording.", true);
+      return;
+    }
+    const all = await soundAll();
+    let rec;
+    if (editing) {
+      rec = all.find((r) => r.id === editing.id) || memSounds[editing.id];
+      if (!rec) return;
+      // Both takes share one sample rate; resample the accent if the files differ.
+      rec = { ...rec, accent: clip.sr === rec.sr ? clip.y : resampleLinear(clip.y, clip.sr, rec.sr) };
+    } else {
+      const label = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim().slice(0, 28) || "My sound";
+      rec = { id: `user-${Date.now().toString(36)}`, label, sr: clip.sr, beat: clip.y, accent: null, added: Date.now() };
+    }
+    const saved = await soundPut(rec);
+    useUserSound(rec);
+    settings.sound = rec.id;
+    rebuildBuffers();
+    saveStore();
+    renderSetup();
+    renderLcd();
+    const len = Math.round((clip.y.length / clip.sr) * 1000);
+    userSoundStatus(`${editing ? `Accent added to ${rec.label}` : `Added ${rec.label}`} (${len} ms, starts on the hit).${saved ? "" : " This browser can't store it, so it lasts until you close POCKET."}`);
+    log(`Sound added: ${rec.label}${editing ? " (accent)" : ""}, ${len} ms`);
+    if (!isRunning()) previewSound();
+  }
+  function resampleLinear(data, from, to) {
+    const n = Math.max(1, Math.round((data.length * to) / from));
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * from) / to, k = Math.floor(x), f = x - k;
+      out[i] = (data[k] || 0) * (1 - f) + (data[k + 1] || 0) * f;
+    }
+    return out;
+  }
+  function renderUserSoundActions() {
+    const mine = userKits.find((k) => k.id === settings.sound);
+    $("user-sounds-empty").hidden = userKits.length > 0;
+    $("user-sound-accent").hidden = !mine;
+    $("user-sound-delete").hidden = !mine;
+    if (mine) $("user-sound-accent").textContent = mine.note === "beat + accent" ? "Replace accent…" : "Add accent…";
+    if (!mine || userSoundDeleteArmed !== mine.id) { $("user-sound-delete").textContent = "Delete"; userSoundDeleteArmed = null; }
+  }
+  $("user-sound-add").addEventListener("click", () => { userSoundTarget = "new"; $("user-sound-file").click(); });
+  $("user-sound-accent").addEventListener("click", () => { userSoundTarget = "accent"; $("user-sound-file").click(); });
+  $("user-sound-file").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (file) importUserSound(file);
+  });
+  $("user-sound-delete").addEventListener("click", async () => {
+    const mine = userKits.find((k) => k.id === settings.sound);
+    if (!mine) return;
+    if (userSoundDeleteArmed !== mine.id) {
+      userSoundDeleteArmed = mine.id;
+      $("user-sound-delete").textContent = "Tap again to delete";
+      setTimeout(() => { if (userSoundDeleteArmed === mine.id) { userSoundDeleteArmed = null; renderUserSoundActions(); } }, 3000);
+      return;
+    }
+    userSoundDeleteArmed = null;
+    await soundDelete(mine.id);
+    userKits = userKits.filter((k) => k.id !== mine.id);
+    delete decodedSamples[mine.id];
+    settings.sound = "wood";
+    rebuildBuffers();
+    saveStore();
+    renderSetup();
+    renderLcd();
+    userSoundStatus(`Deleted ${mine.label}. Songs that used it now play Wood block.`);
+    log(`Sound deleted: ${mine.label}`);
+  });
+  loadUserSounds();
 
   // ---------- charts (plan §08: a PDF chart per song) ----------
   // Stored on this device in IndexedDB, keyed by the song's preset id. pdf.js

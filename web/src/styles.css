@@ -885,3 +885,4 @@ button { cursor: pointer; }
 
 .cc-notes-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .cc-notes-panel[hidden] { display: none; }
+.hint.error { color: var(--danger); }

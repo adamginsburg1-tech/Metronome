@@ -6,6 +6,9 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const SND = createRequire(import.meta.url)("../src/sounds.js");
 
 const here = dirname(fileURLToPath(import.meta.url));
 const samplesDir = join(here, "..", "samples");
@@ -58,43 +61,8 @@ function encodeWav16(data, sr) {
   return out;
 }
 
-/** Onset at the start, tail trimmed, faded, loudness-matched. */
-function prepare({ sr, data }, maxDur) {
-  let mean = 0;
-  for (const v of data) mean += v;
-  mean /= data.length;
-  const x = data.map((v) => v - mean);
-  let peak = 0;
-  for (const v of x) peak = Math.max(peak, Math.abs(v));
-  // Onset: first sample above 10% of peak, then back up to where the signal is
-  // still under 1% of peak (at most 1 ms), so the whole attack is kept.
-  let i = x.findIndex((v) => Math.abs(v) >= 0.1 * peak);
-  const floor = 0.01 * peak, back = Math.round(sr * 0.001);
-  let start = i;
-  while (start > 0 && i - start < back && Math.abs(x[start - 1]) > floor) start--;
-  if (i - start >= back) start = i - Math.round(sr * 0.0003);
-  start = Math.max(0, Math.min(start, i - 8)); // keep the fade-in clear of the attack
-  // End: where 10 ms RMS falls below -60 dB of peak, or maxDur.
-  const win = Math.round(sr * 0.01);
-  let end = Math.min(x.length, start + Math.round(maxDur * sr));
-  for (let j = start + win; j < end; j += win) {
-    let s = 0;
-    for (let k = j; k < j + win && k < x.length; k++) s += x[k] * x[k];
-    if (Math.sqrt(s / win) < peak * 0.001) { end = j + win; break; }
-  }
-  const y = Float32Array.from(x.subarray(start, end));
-  const fadeIn = Math.min(4, y.length); // 0.1 ms: removes a step, never touches the attack
-  for (let k = 0; k < fadeIn; k++) y[k] *= 0.5 - 0.5 * Math.cos((Math.PI * k) / fadeIn);
-  const fadeOut = Math.min(y.length, Math.round(sr * 0.015));
-  for (let k = 0; k < fadeOut; k++) y[y.length - 1 - k] *= k / fadeOut;
-  const w30 = Math.min(y.length, Math.round(sr * 0.03));
-  let s = 0, pk = 0;
-  for (let k = 0; k < w30; k++) s += y[k] * y[k];
-  for (const v of y) pk = Math.max(pk, Math.abs(v));
-  const g = Math.min(REF_RMS / Math.sqrt(s / w30), MAX_PEAK / pk);
-  for (let k = 0; k < y.length; k++) y[k] *= g;
-  return { y, rawPeak: peak, onsetMs: ((i - start) / sr) * 1000 };
-}
+/** Onset at the start, tail trimmed, faded, loudness-matched (shared with the app's importer). */
+const prepare = (src, maxDur) => SND.prepareSample(src, maxDur, { refRms: REF_RMS, maxPeak: MAX_PEAK });
 
 const manifest = JSON.parse(readFileSync(join(samplesDir, "manifest.json"), "utf8"));
 const kits = [];

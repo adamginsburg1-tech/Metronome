@@ -79,3 +79,32 @@ test("square-wave kits are band-limited (no aliasing above the audible band)", (
     assert.ok(e(hp) / e(x) < 0.02, `${id}: ${(e(hp) / e(x) * 100).toFixed(1)}% above 18 kHz`);
   }
 });
+
+test("prepareSample trims the lead-in, caps the length and matches loudness", () => {
+  const sr = 48000;
+  const data = new Float32Array(sr * 3); // 0.25 s silence, then a 2.75 s decaying tone
+  const lead = sr / 4;
+  for (let i = lead; i < data.length; i++) data[i] = 0.3 * Math.sin((2 * Math.PI * 800 * (i - lead)) / sr) * Math.exp(-(i - lead) / (sr * 0.8));
+  const { y, rawPeak } = S.prepareSample({ sr, data }, 1.0);
+  assert.ok(Math.abs(rawPeak - 0.3) < 0.01);
+  assert.ok(y.length <= sr * 1.0 + 1, "tail capped at 1 s");
+  // The hit starts within the first 1 ms.
+  const first = y.findIndex((v) => Math.abs(v) > 0.05);
+  assert.ok(first >= 0 && first < sr * 0.001, `onset at ${first}`);
+  // RMS of the first 30 ms matches the built-in samples (or the peak cap).
+  const w = Math.round(sr * 0.03);
+  let s = 0, pk = 0;
+  for (let k = 0; k < w; k++) s += y[k] * y[k];
+  for (const v of y) pk = Math.max(pk, Math.abs(v));
+  const rms = Math.sqrt(s / w);
+  assert.ok(Math.abs(rms - S.SAMPLE_REF_RMS) < 0.002 || Math.abs(pk - S.MAX_PEAK) < 0.002, `rms ${rms} peak ${pk}`);
+  assert.equal(Math.abs(y[y.length - 1]), 0, "faded out");
+});
+
+test("prepareSample keeps a short click short", () => {
+  const sr = 44100;
+  const data = new Float32Array(sr);
+  for (let i = 100; i < 100 + 400; i++) data[i] = Math.sin(i) * 0.5 * (1 - (i - 100) / 400);
+  const { y } = S.prepareSample({ sr, data }, 1.0);
+  assert.ok(y.length < sr * 0.05, `length ${y.length}`);
+});

@@ -396,3 +396,13 @@ console errors. Screenshot reviewed. Not yet tried on the iPad.
 - **Zoom:** 1180 px layout at 125/150/200%: no horizontal overflow, no clipped text.
 - **Increase Contrast + Reduce Motion:** emulated; screenshot checked.
 - **Node:** 46 tests pass.
+
+## Your own sounds (D-042)
+- **Node:** 48 tests pass (2 new: `prepareSample` trims a 0.25 s lead-in to the
+  first 1 ms, caps at 1 s, matches loudness; a short click stays short).
+- **Samples:** rebuilt with the shared `prepareSample`: no file changed.
+- **Browser (Chromium):** text file → "couldn't read"; silent WAV → "silent";
+  44.1 kHz stereo WAV with 0.3 s lead-in → added, starts on the hit, selected,
+  LCD shows it; M4A accent added; second sound added; plays; survives reload;
+  two-tap delete falls back to Wood block; no page errors; no overflow at 390 px.
+- **Still to try on the iPad:** picking from Files and Safari's decoding of M4A/AIFF.

@@ -379,3 +379,18 @@ read "Kick, beat 2, step 3: accent"; pan sliders read "30% left" / "Centre",
 volume says when muted; Prev/Next say "Previous song" / "Next song".
 Reduce Motion now removes every transition; Increase Contrast brightens muted text
 and outlines keys. Page zoom at 125%, 150% and 200% shows no overflow or clipping.
+
+## D-042 — Your own sounds (web test)
+Settings › Sound › **Your sounds**: Add sound… takes a recording from the Files app
+(WAV, AIFF, MP3, M4A; anything the browser decodes, WAV also without Web Audio),
+up to 20 MB, up to 12 sounds. It goes through the same clean-up as the built-in
+samples — `prepareSample` moved from `tools/build-samples.mjs` into `sounds.js`
+(rebuilt samples are byte-identical) — so it starts on the hit, the tail stops at
+−60 dB or 1 s, and it is loudness-matched to the kits. Mixed to mono.
+- One file is the beat; Add accent… adds a second file for bar one and group
+  accents (resampled if the rates differ). Subdivisions use the beat, quieter.
+- Stored on the device in IndexedDB (`pocket-sounds`); named from the file name.
+  Without storage it still works until POCKET closes and says so.
+- Delete takes two taps; songs using a deleted sound fall back to Wood block.
+- Messages for unreadable files, silent recordings, oversize files and the limit.
+Native: the same flow with the document picker and AVAudioFile.
